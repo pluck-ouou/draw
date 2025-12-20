@@ -1,32 +1,51 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ChristmasTree } from '@/components/ChristmasTree';
 import { ResultModal } from '@/components/ResultModal';
 import { Snowfall } from '@/components/Snowfall';
 import { useGame } from '@/hooks/useGame';
 import { getPlayerName } from '@/lib/utils';
-import { Loader2, Sparkles, ArrowLeft } from 'lucide-react';
+import { Loader2, Sparkles, ArrowLeft, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function GamePage() {
   const router = useRouter();
-  const { game, playerName, isLoading, stats } = useGame();
+  const params = useParams();
+  const inviteCode = params.inviteCode as string;
+
+  const { game, playerName, isLoading, stats } = useGame({ inviteCode });
 
   useEffect(() => {
     // Redirect if no player name
     const savedName = getPlayerName();
-    if (!savedName) {
-      router.push('/');
+    if (!savedName && !isLoading) {
+      router.push(`/${inviteCode}`);
     }
-  }, [router]);
+  }, [router, inviteCode, isLoading]);
 
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-yellow-400" />
+      </div>
+    );
+  }
+
+  if (!game) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+        <AlertCircle className="mb-4 h-16 w-16 text-red-400" />
+        <h1 className="mb-2 text-2xl font-bold text-white">게임을 찾을 수 없습니다</h1>
+        <p className="mb-6 text-gray-400">초대 코드를 확인해주세요.</p>
+        <Link
+          href="/"
+          className="rounded-lg bg-yellow-500 px-6 py-3 font-bold text-black hover:bg-yellow-400"
+        >
+          홈으로 돌아가기
+        </Link>
       </div>
     );
   }
@@ -44,12 +63,15 @@ export default function GamePage() {
       >
         <div className="flex items-center justify-between rounded-xl bg-gray-800/50 p-4">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-gray-400 hover:text-white transition-colors">
+            <Link href={`/${inviteCode}`} className="text-gray-400 hover:text-white transition-colors">
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <div className="flex items-center gap-2">
               <Sparkles className="h-6 w-6 text-yellow-400" />
-              <h1 className="text-xl font-bold gradient-text">Lucky Draw</h1>
+              <div>
+                <h1 className="text-xl font-bold gradient-text">Lucky Draw</h1>
+                <p className="text-xs text-gray-500">{game.name}</p>
+              </div>
             </div>
           </div>
           <div className="text-right">

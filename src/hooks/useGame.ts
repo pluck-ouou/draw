@@ -7,18 +7,24 @@ import { getSessionId, getPlayerName } from '@/lib/utils';
 import type { Draw, DrawResult } from '@/lib/supabase/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-const GAME_ID = process.env.NEXT_PUBLIC_GAME_ID!;
 const supabase = createClient();
 
 // 모듈 레벨에서 채널 관리 (HMR에서도 유지)
-let globalChannel: RealtimeChannel | null = null;
-let subscriberCount = 0;
+const channelMap: Map<string, RealtimeChannel> = new Map();
+const subscriberCountMap: Map<string, number> = new Map();
 
 // 데이터 로딩 중복 방지
-let isDataFetching = false;
-let isDataFetched = false;
+const fetchingGames: Set<string> = new Set();
+const fetchedGames: Set<string> = new Set();
 
-export function useGame() {
+interface UseGameOptions {
+  gameId?: string;
+  inviteCode?: string;
+}
+
+export function useGame(options: UseGameOptions = {}) {
+  const { gameId: propGameId, inviteCode } = options;
+
   const {
     game,
     prizes,
@@ -54,55 +60,71 @@ export function useGame() {
     }
   }, [setSessionId, setPlayerName]);
 
-  // Fetch initial data - 의존성 없이 한 번만 실행
+  // Fetch initial data
   useEffect(() => {
     const fetchGameData = async () => {
+      // gameId 또는 inviteCode가 필요
+      const identifier = propGameId || inviteCode;
+      if (!identifier) {
+        console.log('[useGame] No gameId or inviteCode provided');
+        return;
+      }
+
       // 이미 데이터를 가져오는 중이거나 가져왔으면 스킵
-      if (isDataFetching || isDataFetched) {
+      if (fetchingGames.has(identifier) || fetchedGames.has(identifier)) {
         console.log('[useGame] 이미 데이터 로딩 중이거나 완료됨, 스킵');
         return;
       }
 
-      isDataFetching = true;
-      console.log('[useGame] fetchGameData 시작, GAME_ID:', GAME_ID);
+      fetchingGames.add(identifier);
+      console.log('[useGame] fetchGameData 시작, identifier:', identifier);
       useGameStore.getState().setIsLoading(true);
+
       try {
-        // Fetch game
-        console.log('[useGame] games 테이블 조회 중...');
-        const { data: gameData, error: gameError } = await supabase
-          .from('games')
-          .select('*')
-          .eq('id', GAME_ID)
-          .single();
-
-        console.log('[useGame] games 결과:', { gameData, gameError });
-
-        if (gameData) {
-          useGameStore.getState().setGame(gameData);
+        // Fetch game - inviteCode로 조회하거나 gameId로 조회
+        let gameData;
+        if (inviteCode) {
+          const { data, error } = await supabase
+            .from('games')
+            .select('*')
+            .eq('invite_code', inviteCode.toUpperCase())
+            .single();
+          if (error) throw error;
+          gameData = data;
+        } else if (propGameId) {
+          const { data, error } = await supabase
+            .from('games')
+            .select('*')
+            .eq('id', propGameId)
+            .single();
+          if (error) throw error;
+          gameData = data;
         }
 
+        if (!gameData) {
+          console.error('[useGame] Game not found');
+          return;
+        }
+
+        const currentGameId = gameData.id;
+        useGameStore.getState().setGame(gameData);
+
         // Fetch prizes
-        console.log('[useGame] prizes 테이블 조회 중...');
-        const { data: prizesData, error: prizesError } = await supabase
+        const { data: prizesData } = await supabase
           .from('prizes')
           .select('*')
-          .eq('game_id', GAME_ID)
+          .eq('game_id', currentGameId)
           .order('slot_number');
-
-        console.log('[useGame] prizes 결과:', { count: prizesData?.length, prizesError });
 
         if (prizesData) {
           useGameStore.getState().setPrizes(prizesData);
         }
 
         // Fetch draws
-        console.log('[useGame] draws 테이블 조회 중...');
-        const { data: drawsData, error: drawsError } = await supabase
+        const { data: drawsData } = await supabase
           .from('draws')
           .select('*')
-          .eq('game_id', GAME_ID);
-
-        console.log('[useGame] draws 결과:', { count: drawsData?.length, drawsError });
+          .eq('game_id', currentGameId);
 
         if (drawsData) {
           useGameStore.getState().setDraws(drawsData);
@@ -118,26 +140,27 @@ export function useGame() {
       } catch (error) {
         console.error('[useGame] Failed to fetch game data:', error);
       } finally {
-        console.log('[useGame] 로딩 완료, isLoading -> false');
-        isDataFetching = false;
-        isDataFetched = true;
+        fetchingGames.delete(identifier);
+        fetchedGames.add(identifier);
         useGameStore.getState().setIsLoading(false);
       }
     };
 
-    console.log('[useGame] useEffect 실행, fetchGameData 호출');
     fetchGameData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [propGameId, inviteCode]);
 
-  // Subscribe to realtime updates - 전역 채널 사용 (HMR/Strict Mode에서도 안정적)
+  // Subscribe to realtime updates
   useEffect(() => {
-    subscriberCount++;
+    const currentGameId = game?.id;
+    if (!currentGameId) return;
+
+    const channelKey = `game-${currentGameId}`;
+    subscriberCountMap.set(channelKey, (subscriberCountMap.get(channelKey) || 0) + 1);
 
     // 이미 채널이 있으면 재사용
-    if (!globalChannel) {
-      globalChannel = supabase
-        .channel('game-realtime', {
+    if (!channelMap.has(channelKey)) {
+      const channel = supabase
+        .channel(channelKey, {
           config: {
             broadcast: { self: false },
           },
@@ -163,7 +186,7 @@ export function useGame() {
             event: 'UPDATE',
             schema: 'public',
             table: 'prizes',
-            filter: `game_id=eq.${GAME_ID}`,
+            filter: `game_id=eq.${currentGameId}`,
           },
           (payload: { new: Record<string, unknown> }) => {
             useGameStore.getState().updatePrize(payload.new as any);
@@ -175,7 +198,7 @@ export function useGame() {
             event: 'INSERT',
             schema: 'public',
             table: 'draws',
-            filter: `game_id=eq.${GAME_ID}`,
+            filter: `game_id=eq.${currentGameId}`,
           },
           (payload: { new: Record<string, unknown> }) => {
             useGameStore.getState().addDraw(payload.new as any);
@@ -187,7 +210,7 @@ export function useGame() {
             event: 'UPDATE',
             schema: 'public',
             table: 'games',
-            filter: `id=eq.${GAME_ID}`,
+            filter: `id=eq.${currentGameId}`,
           },
           (payload: { new: Record<string, unknown> }) => {
             useGameStore.getState().setGame(payload.new as any);
@@ -200,38 +223,49 @@ export function useGame() {
             console.error('Realtime channel error');
           }
         });
+
+      channelMap.set(channelKey, channel);
     }
 
     return () => {
-      subscriberCount--;
-      // 모든 구독자가 언마운트되면 채널 정리 (HMR 중에는 유지)
-      if (subscriberCount === 0 && globalChannel) {
-        // 개발 모드에서는 채널을 유지하여 WebSocket 에러 방지
-        if (process.env.NODE_ENV === 'production') {
-          supabase.removeChannel(globalChannel);
-          globalChannel = null;
+      const count = (subscriberCountMap.get(channelKey) || 1) - 1;
+      subscriberCountMap.set(channelKey, count);
+
+      if (count === 0) {
+        const channel = channelMap.get(channelKey);
+        if (channel && process.env.NODE_ENV === 'production') {
+          supabase.removeChannel(channel);
+          channelMap.delete(channelKey);
         }
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [game?.id]);
 
   // Broadcast helper function
   const broadcastDrawCompleted = useCallback(
     async (prize: any, draw: any) => {
-      const channel = supabase.channel('game-realtime');
+      if (!game?.id) return;
+      const channel = supabase.channel(`game-${game.id}`);
       await channel.send({
         type: 'broadcast',
         event: 'draw_completed',
         payload: { prize, draw },
       });
     },
-    []
+    [game?.id]
   );
 
   // Draw function
   const drawPrize = useCallback(
     async (slotNumber: number): Promise<DrawResult> => {
+      if (!game?.id) {
+        return {
+          success: false,
+          error: 'NO_GAME',
+          message: '게임을 찾을 수 없습니다.',
+        };
+      }
+
       if (!playerName || !sessionId) {
         return {
           success: false,
@@ -252,7 +286,7 @@ export function useGame() {
 
       try {
         const { data, error } = await supabase.rpc('draw_prize', {
-          p_game_id: GAME_ID,
+          p_game_id: game.id,
           p_slot_number: slotNumber,
           p_player_name: playerName,
           p_session_id: sessionId,
@@ -269,7 +303,7 @@ export function useGame() {
           // Fetch the draw record and updated prize
           const [{ data: drawData }, { data: prizeData }] = await Promise.all([
             supabase.from('draws').select('*').eq('id', result.draw_id).single(),
-            supabase.from('prizes').select('*').eq('game_id', GAME_ID).eq('slot_number', slotNumber).single(),
+            supabase.from('prizes').select('*').eq('game_id', game.id).eq('slot_number', slotNumber).single(),
           ]);
 
           if (drawData) {
@@ -300,6 +334,7 @@ export function useGame() {
       }
     },
     [
+      game?.id,
       playerName,
       sessionId,
       hasParticipated,
@@ -326,12 +361,15 @@ export function useGame() {
 
   // Refetch function
   const refetch = useCallback(async () => {
+    const currentGameId = game?.id;
+    if (!currentGameId) return;
+
     useGameStore.getState().setIsLoading(true);
     try {
       const [{ data: gameData }, { data: prizesData }, { data: drawsData }] = await Promise.all([
-        supabase.from('games').select('*').eq('id', GAME_ID).single(),
-        supabase.from('prizes').select('*').eq('game_id', GAME_ID).order('slot_number'),
-        supabase.from('draws').select('*').eq('game_id', GAME_ID),
+        supabase.from('games').select('*').eq('id', currentGameId).single(),
+        supabase.from('prizes').select('*').eq('game_id', currentGameId).order('slot_number'),
+        supabase.from('draws').select('*').eq('game_id', currentGameId),
       ]);
 
       if (gameData) useGameStore.getState().setGame(gameData);
@@ -350,7 +388,7 @@ export function useGame() {
     } finally {
       useGameStore.getState().setIsLoading(false);
     }
-  }, []);
+  }, [game?.id]);
 
   // Stats
   const stats = {
@@ -378,4 +416,17 @@ export function useGame() {
     getPrizeWithDraw,
     refetch,
   };
+}
+
+// 초대 코드로 게임 정보 가져오기 (서버 또는 클라이언트에서 사용)
+export async function getGameByInviteCode(inviteCode: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('games')
+    .select('*')
+    .eq('invite_code', inviteCode.toUpperCase())
+    .single();
+
+  if (error) return null;
+  return data;
 }

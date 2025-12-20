@@ -10,9 +10,10 @@ import { Sparkles, Users } from 'lucide-react';
 interface NameInputProps {
   participantCount: number;
   remainingSlots: number;
+  inviteCode: string;
 }
 
-export function NameInput({ participantCount, remainingSlots }: NameInputProps) {
+export function NameInput({ participantCount, remainingSlots, inviteCode }: NameInputProps) {
   const router = useRouter();
   const { setPlayerName } = useGameStore();
   const [name, setName] = useState('');
@@ -38,7 +39,7 @@ export function NameInput({ participantCount, remainingSlots }: NameInputProps) 
     savePlayerName(trimmedName);
 
     // Navigate to game page
-    router.push('/game');
+    router.push(`/game/${inviteCode}`);
   };
 
   return (

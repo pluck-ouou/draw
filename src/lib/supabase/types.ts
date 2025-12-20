@@ -5,6 +5,7 @@ export interface Game {
   name: string;
   status: GameStatus;
   total_slots: number;
+  invite_code: string;
   created_at: string;
   updated_at: string;
 }

@@ -95,19 +95,12 @@ export function ChristmasTree() {
       </div>
 
       {/* Tree Container */}
-      <div className="relative w-full" style={{ paddingBottom: '120%' }}>
+      <div className="relative w-full" style={{ paddingBottom: '100%' }}>
         {/* Tree Background Image */}
-        {/* <img
-          src="/tree.png"
-          alt="Christmas Tree"
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-          style={{ zIndex: 0 }}
-        /> */}
-
         <img
           src="/tree.png"
           alt="Christmas Tree"
-          className="absolute inset-0 w-[500px] h-full object-contain pointer-events-none"
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
           style={{ zIndex: 0 }}
         />
 
