@@ -62,11 +62,32 @@ export default function AdminGamePage() {
   // 스프라이트 설정
   const [showSpriteSettings, setShowSpriteSettings] = useState(false);
   const [spriteConfig, setSpriteConfig] = useState<SpriteConfig>(DEFAULT_SPRITE_CONFIG);
+  const [spriteImageSize, setSpriteImageSize] = useState<{ width: number; height: number } | null>(null);
 
   // 경품 설정 펼치기
   const [showPrizeSettings, setShowPrizeSettings] = useState(false);
 
   const supabase = createClient();
+
+  // 스프라이트 이미지 크기 자동 감지
+  useEffect(() => {
+    const imageUrl = template?.sprite_image;
+    if (imageUrl) {
+      const img = new window.Image();
+      img.onload = () => {
+        setSpriteImageSize({ width: img.naturalWidth, height: img.naturalHeight });
+        // spriteConfig에 imageWidth/Height가 없으면 자동 설정
+        if (!spriteConfig.imageWidth || !spriteConfig.imageHeight) {
+          setSpriteConfig(prev => ({
+            ...prev,
+            imageWidth: img.naturalWidth,
+            imageHeight: img.naturalHeight,
+          }));
+        }
+      };
+      img.src = imageUrl;
+    }
+  }, [template?.sprite_image]);
 
 
   const fetchData = useCallback(async () => {
@@ -312,6 +333,11 @@ export default function AdminGamePage() {
                   <div><label className="mb-1 block text-xs text-gray-400">X 간격 (px)</label><input type="number" value={spriteConfig.gapX} onChange={(e) => setSpriteConfig({ ...spriteConfig, gapX: Number(e.target.value) })} className="w-full rounded-lg bg-gray-700 px-3 py-2 text-white text-sm" /></div>
                   <div><label className="mb-1 block text-xs text-gray-400">Y 간격 (px)</label><input type="number" value={spriteConfig.gapY} onChange={(e) => setSpriteConfig({ ...spriteConfig, gapY: Number(e.target.value) })} className="w-full rounded-lg bg-gray-700 px-3 py-2 text-white text-sm" /></div>
                 </div>
+                {spriteImageSize && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    원본 이미지 크기: {spriteImageSize.width} x {spriteImageSize.height}px
+                  </div>
+                )}
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={async () => {
@@ -320,10 +346,17 @@ export default function AdminGamePage() {
                         return;
                       }
                       try {
+                        // 이미지 크기가 있으면 함께 저장
+                        const configToSave = {
+                          ...spriteConfig,
+                          imageWidth: spriteImageSize?.width || spriteConfig.imageWidth,
+                          imageHeight: spriteImageSize?.height || spriteConfig.imageHeight,
+                        };
                         await supabase
                           .from('templates')
-                          .update({ sprite_config: spriteConfig })
+                          .update({ sprite_config: configToSave })
                           .eq('id', game.template_id);
+                        await fetchData();
                         alert('저장되었습니다.');
                       } catch (error) {
                         console.error('저장 실패:', error);

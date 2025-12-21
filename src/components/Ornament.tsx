@@ -10,6 +10,8 @@ export interface SpriteConfig {
   offsetY: number;      // Y 시작 오프셋 (전역)
   gapX: number;         // 셀 간 X 간격
   gapY: number;         // 셀 간 Y 간격
+  imageWidth?: number;  // 원본 이미지 너비 (선택)
+  imageHeight?: number; // 원본 이미지 높이 (선택)
 }
 
 // 개별 오너먼트 오프셋 타입
@@ -29,6 +31,8 @@ export const DEFAULT_SPRITE_CONFIG: SpriteConfig = {
   offsetY: 0,
   gapX: 0,
   gapY: 0,
+  imageWidth: 1536,
+  imageHeight: 1536,
 };
 
 interface OrnamentProps {
@@ -74,9 +78,9 @@ export function Ornament({
   // 스케일 계산 (표시 크기 / 셀 크기)
   const scale = size / config.cellWidth;
 
-  // 전체 이미지 크기 계산
-  const totalWidth = config.columns * (config.cellWidth + config.gapX);
-  const totalHeight = config.rows * (config.cellHeight + config.gapY);
+  // 전체 이미지 크기 (imageWidth/Height가 있으면 사용, 없으면 계산)
+  const totalWidth = config.imageWidth ?? config.columns * (config.cellWidth + config.gapX);
+  const totalHeight = config.imageHeight ?? config.rows * (config.cellHeight + config.gapY);
 
   // 스프라이트 이미지 URL (props로 받거나 기본값)
   const imageUrl = spriteImageUrl || '/selceted_ornament.png';
