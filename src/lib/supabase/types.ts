@@ -6,6 +6,7 @@ export interface Game {
   status: GameStatus;
   total_slots: number;
   invite_code: string;
+  template_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -47,4 +48,49 @@ export interface DrawResult {
 
 export interface PrizeWithDraw extends Prize {
   draw?: Draw | null;
+}
+
+// 스프라이트 설정 타입
+export interface SpriteConfig {
+  offsetX: number;
+  offsetY: number;
+  cellWidth: number;
+  cellHeight: number;
+  gapX: number;
+  gapY: number;
+  columns: number;
+  rows: number;
+}
+
+// 템플릿 타입
+export interface Template {
+  id: string;
+  name: string;
+  description: string | null;
+  background_image: string | null;
+  sprite_image: string | null;
+  sprite_config: SpriteConfig;
+  total_slots: number;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// 템플릿 슬롯 타입
+export interface TemplateSlot {
+  id: string;
+  template_id: string;
+  slot_number: number;
+  offset_x: number;
+  offset_y: number;
+  position_top: number | null;
+  position_left: number | null;
+  default_prize_name: string;
+  default_prize_grade: string | null;
+  created_at: string;
+}
+
+// 템플릿과 슬롯을 함께 가져올 때
+export interface TemplateWithSlots extends Template {
+  slots: TemplateSlot[];
 }

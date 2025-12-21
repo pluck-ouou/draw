@@ -1,11 +1,12 @@
 'use client';
 
 import { create } from 'zustand';
-import type { Game, Prize, Draw, DrawResult } from '@/lib/supabase/types';
+import type { Game, Prize, Draw, DrawResult, Template } from '@/lib/supabase/types';
 
 interface GameState {
   // Game data
   game: Game | null;
+  template: Template | null;
   prizes: Prize[];
   draws: Draw[];
 
@@ -24,6 +25,7 @@ interface GameState {
 
   // Actions
   setGame: (game: Game | null) => void;
+  setTemplate: (template: Template | null) => void;
   setPrizes: (prizes: Prize[]) => void;
   setDraws: (draws: Draw[]) => void;
   updatePrize: (prize: Prize) => void;
@@ -42,6 +44,7 @@ interface GameState {
 
 const initialState = {
   game: null,
+  template: null,
   prizes: [],
   draws: [],
   playerName: '',
@@ -59,6 +62,7 @@ export const useGameStore = create<GameState>((set) => ({
   ...initialState,
 
   setGame: (game) => set({ game }),
+  setTemplate: (template) => set({ template }),
   setPrizes: (prizes) => set({ prizes }),
   setDraws: (draws) => set({ draws }),
 

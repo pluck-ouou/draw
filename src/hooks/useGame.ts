@@ -27,6 +27,7 @@ export function useGame(options: UseGameOptions = {}) {
 
   const {
     game,
+    template,
     prizes,
     draws,
     playerName,
@@ -36,6 +37,7 @@ export function useGame(options: UseGameOptions = {}) {
     isLoading,
     isDrawing,
     setGame,
+    setTemplate,
     setPrizes,
     setDraws,
     updatePrize,
@@ -108,6 +110,19 @@ export function useGame(options: UseGameOptions = {}) {
 
         const currentGameId = gameData.id;
         useGameStore.getState().setGame(gameData);
+
+        // Fetch template if game has template_id
+        if (gameData.template_id) {
+          const { data: templateData } = await supabase
+            .from('templates')
+            .select('*')
+            .eq('id', gameData.template_id)
+            .single();
+
+          if (templateData) {
+            useGameStore.getState().setTemplate(templateData);
+          }
+        }
 
         // Fetch prizes
         const { data: prizesData } = await supabase
@@ -404,6 +419,7 @@ export function useGame(options: UseGameOptions = {}) {
 
   return {
     game,
+    template,
     prizes,
     draws,
     playerName,

@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import {
   SpriteConfig,
   DEFAULT_SPRITE_CONFIG,
-  getSpriteConfig,
 } from './Ornament';
 import { Save, RefreshCw, Move, Loader2, ZoomIn, ZoomOut } from 'lucide-react';
 
@@ -15,6 +14,8 @@ interface SpriteAdjusterProps {
   currentOffsetY?: number;
   onSave: (offsetX: number, offsetY: number) => Promise<void>;
   onClose?: () => void;
+  spriteImageUrl?: string;
+  spriteConfig?: SpriteConfig;
 }
 
 export function SpriteAdjuster({
@@ -23,8 +24,11 @@ export function SpriteAdjuster({
   currentOffsetY = 0,
   onSave,
   onClose,
+  spriteImageUrl,
+  spriteConfig: propSpriteConfig,
 }: SpriteAdjusterProps) {
-  const [config, setConfig] = useState<SpriteConfig>(DEFAULT_SPRITE_CONFIG);
+  const imageUrl = spriteImageUrl || '/selceted_ornament.png';
+  const [config, setConfig] = useState<SpriteConfig>(propSpriteConfig || DEFAULT_SPRITE_CONFIG);
   const [isDragging, setIsDragging] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
@@ -32,24 +36,36 @@ export function SpriteAdjuster({
   const [startOffset, setStartOffset] = useState({ x: currentOffsetX, y: currentOffsetY });
   const [zoom, setZoom] = useState(0.4); // 전체 이미지 줌 레벨
   const containerRef = useRef<HTMLDivElement>(null);
+  const [imageNaturalSize, setImageNaturalSize] = useState({ width: 1536, height: 1536 });
 
+  // propSpriteConfig가 변경되면 config 업데이트
   useEffect(() => {
-    const savedConfig = getSpriteConfig();
-    setConfig(savedConfig);
-  }, []);
+    if (propSpriteConfig) {
+      setConfig(propSpriteConfig);
+    }
+  }, [propSpriteConfig]);
 
   useEffect(() => {
     setTempOffset({ x: currentOffsetX, y: currentOffsetY });
     setStartOffset({ x: currentOffsetX, y: currentOffsetY });
   }, [currentOffsetX, currentOffsetY]);
 
+  // 이미지 원본 크기 가져오기
+  useEffect(() => {
+    const img = new window.Image();
+    img.onload = () => {
+      setImageNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.src = imageUrl;
+  }, [imageUrl]);
+
   // 그리드에서의 기본 위치 계산
   const col = index % config.columns;
   const row = Math.floor(index / config.columns);
 
-  // 전체 이미지 크기 (원본)
-  const totalWidth = config.columns * (config.cellWidth + config.gapX);
-  const totalHeight = config.rows * (config.cellHeight + config.gapY);
+  // 전체 이미지 크기 (원본 이미지 기준)
+  const totalWidth = imageNaturalSize.width;
+  const totalHeight = imageNaturalSize.height;
 
   // 기본 크롭 위치 (전역 offset + 그리드 위치)
   const baseCropX = config.offsetX + col * (config.cellWidth + config.gapX);
@@ -59,9 +75,9 @@ export function SpriteAdjuster({
   const finalCropX = baseCropX + tempOffset.x;
   const finalCropY = baseCropY + tempOffset.y;
 
-  // 미리보기 크기
+  // 미리보기 크기 (셀 크기 기준으로 스케일 계산)
   const previewSize = 100;
-  const previewScale = previewSize / config.cellWidth;
+  const previewScale = previewSize / Math.max(config.cellWidth, config.cellHeight);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -121,7 +137,7 @@ export function SpriteAdjuster({
           style={{
             width: totalWidth * zoom,
             height: totalHeight * zoom,
-            backgroundImage: 'url(/selceted_ornament.png)',
+            backgroundImage: `url(${imageUrl})`,
             backgroundSize: `${totalWidth * zoom}px ${totalHeight * zoom}px`,
             backgroundPosition: '0 0',
             backgroundRepeat: 'no-repeat',
@@ -184,11 +200,11 @@ export function SpriteAdjuster({
         <div className="flex flex-col items-center">
           <span className="text-xs text-gray-500 mb-1">미리보기</span>
           <div
-            className="rounded-lg border border-gray-600 bg-gray-800"
+            className="rounded-lg border border-gray-600 bg-gray-800 overflow-hidden"
             style={{
-              width: previewSize,
-              height: previewSize,
-              backgroundImage: 'url(/selceted_ornament.png)',
+              width: config.cellWidth * previewScale,
+              height: config.cellHeight * previewScale,
+              backgroundImage: `url(${imageUrl})`,
               backgroundSize: `${totalWidth * previewScale}px ${totalHeight * previewScale}px`,
               backgroundPosition: `-${finalCropX * previewScale}px -${finalCropY * previewScale}px`,
               backgroundRepeat: 'no-repeat',

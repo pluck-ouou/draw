@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Ornament } from '../Ornament';
+import { Ornament, SpriteConfig } from '../Ornament';
 import { Prize } from '@/lib/supabase/types';
 import { createClient } from '@/lib/supabase/client';
 import { Save, RefreshCw, Loader2, Move, ZoomIn, ZoomOut } from 'lucide-react';
@@ -41,9 +41,18 @@ const DEFAULT_POSITIONS = getDefaultPositions();
 interface OrnamentPositionEditorProps {
   prizes: Prize[];
   onUpdate: () => void;
+  backgroundImageUrl?: string;
+  spriteImageUrl?: string;
+  spriteConfig?: SpriteConfig;
 }
 
-export function OrnamentPositionEditor({ prizes, onUpdate }: OrnamentPositionEditorProps) {
+export function OrnamentPositionEditor({
+  prizes,
+  onUpdate,
+  backgroundImageUrl,
+  spriteImageUrl,
+  spriteConfig,
+}: OrnamentPositionEditorProps) {
   const [selectedPrize, setSelectedPrize] = useState<Prize | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -227,7 +236,7 @@ export function OrnamentPositionEditor({ prizes, onUpdate }: OrnamentPositionEdi
         >
           {/* 트리 배경 */}
           <img
-            src="/tree.png"
+            src={backgroundImageUrl || '/tree.png'}
             alt="Tree"
             className="absolute inset-0 w-full h-full object-contain pointer-events-none opacity-50"
           />
@@ -256,6 +265,8 @@ export function OrnamentPositionEditor({ prizes, onUpdate }: OrnamentPositionEdi
                   <Ornament
                     index={prize.slot_number - 1}
                     size={24 * zoom}
+                    spriteConfig={spriteConfig}
+                    spriteImageUrl={spriteImageUrl}
                     individualOffset={{ x: prize.offset_x, y: prize.offset_y }}
                   />
                   {/* 슬롯 번호 */}

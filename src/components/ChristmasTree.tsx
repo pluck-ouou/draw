@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Ornament } from './Ornament';
+import { Ornament, SpriteConfig } from './Ornament';
 import { useGame } from '@/hooks/useGame';
 import { useGameStore } from '@/store/gameStore';
 import { Loader2 } from 'lucide-react';
@@ -44,11 +44,16 @@ function getOrnamentPositions() {
 const ORNAMENT_POSITIONS = getOrnamentPositions();
 
 export function ChristmasTree() {
-  const { prizes, hasParticipated, isDrawing, drawPrize, game } = useGame();
+  const { prizes, hasParticipated, isDrawing, drawPrize, game, template } = useGame();
   const { selectedSlot, setSelectedSlot } = useGameStore();
 
   const isGameActive = game?.status === 'active';
   const canDraw = isGameActive && !hasParticipated;
+
+  // 템플릿 이미지 URL (템플릿이 있으면 사용, 없으면 기본값)
+  const backgroundImageUrl = template?.background_image || '/tree.png';
+  const spriteImageUrl = template?.sprite_image || undefined;
+  const spriteConfig = template?.sprite_config as SpriteConfig | undefined;
 
   const handleOrnamentClick = async (slotNumber: number) => {
     if (!canDraw || isDrawing) return;
@@ -98,7 +103,7 @@ export function ChristmasTree() {
       <div className="relative w-full" style={{ paddingBottom: '100%' }}>
         {/* Tree Background Image */}
         <img
-          src="/tree.png"
+          src={backgroundImageUrl}
           alt="Christmas Tree"
           className="absolute inset-0 w-full h-full object-contain pointer-events-none"
           style={{ zIndex: 0 }}
@@ -146,6 +151,8 @@ export function ChristmasTree() {
                     index={prize.slot_number - 1}
                     size={28}
                     individualOffset={{ x: prize.offset_x, y: prize.offset_y }}
+                    spriteConfig={spriteConfig}
+                    spriteImageUrl={spriteImageUrl}
                   />
 
                   {/* 선택 중 로딩 */}

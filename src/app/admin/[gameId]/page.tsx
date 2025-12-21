@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { createClient } from '@/lib/supabase/client';
 import type { Game, Prize, Draw } from '@/lib/supabase/types';
-import { Ornament, SpriteConfig, DEFAULT_SPRITE_CONFIG, getSpriteConfig, saveSpriteConfig } from '@/components/Ornament';
+import { Ornament, SpriteConfig, DEFAULT_SPRITE_CONFIG } from '@/components/Ornament';
+import type { Template } from '@/lib/supabase/types';
 import { SpriteAdjuster } from '@/components/SpriteAdjuster';
 import { OrnamentPositionEditor } from '@/components/admin/OrnamentPositionEditor';
 import Link from 'next/link';
@@ -46,6 +47,7 @@ export default function AdminGamePage() {
   const gameId = params.gameId as string;
 
   const [game, setGame] = useState<Game | null>(null);
+  const [template, setTemplate] = useState<Template | null>(null);
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [draws, setDraws] = useState<Draw[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -66,10 +68,6 @@ export default function AdminGamePage() {
 
   const supabase = createClient();
 
-  // 스프라이트 설정 불러오기
-  useEffect(() => {
-    setSpriteConfig(getSpriteConfig());
-  }, []);
 
   const fetchData = useCallback(async () => {
     const [gameRes, prizesRes, drawsRes] = await Promise.all([
@@ -78,7 +76,24 @@ export default function AdminGamePage() {
       supabase.from('draws').select('*').eq('game_id', gameId).order('drawn_at', { ascending: false }),
     ]);
 
-    if (gameRes.data) setGame(gameRes.data);
+    if (gameRes.data) {
+      setGame(gameRes.data);
+      // 템플릿 정보 가져오기
+      if (gameRes.data.template_id) {
+        const { data: templateData } = await supabase
+          .from('templates')
+          .select('*')
+          .eq('id', gameRes.data.template_id)
+          .single();
+        if (templateData) {
+          setTemplate(templateData);
+          // 템플릿의 sprite_config 적용
+          if (templateData.sprite_config) {
+            setSpriteConfig(templateData.sprite_config as SpriteConfig);
+          }
+        }
+      }
+    }
     if (prizesRes.data) setPrizes(prizesRes.data);
     if (drawsRes.data) setDraws(drawsRes.data);
     setIsLoading(false);
@@ -281,7 +296,7 @@ export default function AdminGamePage() {
                   <div className="flex gap-2">
                     {[0, 1, 2, 9, 10, 11].map((i) => (
                       <div key={i} className="flex flex-col items-center">
-                        <Ornament index={i} size={48} spriteConfig={spriteConfig} />
+                        <Ornament index={i} size={48} spriteConfig={spriteConfig} spriteImageUrl={template?.sprite_image || undefined} />
                         <span className="text-[10px] text-gray-500">#{i + 1}</span>
                       </div>
                     ))}
@@ -298,7 +313,27 @@ export default function AdminGamePage() {
                   <div><label className="mb-1 block text-xs text-gray-400">Y 간격 (px)</label><input type="number" value={spriteConfig.gapY} onChange={(e) => setSpriteConfig({ ...spriteConfig, gapY: Number(e.target.value) })} className="w-full rounded-lg bg-gray-700 px-3 py-2 text-white text-sm" /></div>
                 </div>
                 <div className="mt-4 flex gap-2">
-                  <button onClick={() => { saveSpriteConfig(spriteConfig); alert('저장되었습니다.'); }} className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-500"><Save className="h-4 w-4" />저장</button>
+                  <button
+                    onClick={async () => {
+                      if (!game?.template_id) {
+                        alert('템플릿이 연결되지 않은 게임입니다.');
+                        return;
+                      }
+                      try {
+                        await supabase
+                          .from('templates')
+                          .update({ sprite_config: spriteConfig })
+                          .eq('id', game.template_id);
+                        alert('저장되었습니다.');
+                      } catch (error) {
+                        console.error('저장 실패:', error);
+                        alert('저장에 실패했습니다.');
+                      }
+                    }}
+                    className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-500"
+                  >
+                    <Save className="h-4 w-4" />저장
+                  </button>
                   <button onClick={() => setSpriteConfig(DEFAULT_SPRITE_CONFIG)} className="flex items-center gap-2 rounded-lg bg-gray-600 px-4 py-2 text-sm text-white hover:bg-gray-500"><RefreshCw className="h-4 w-4" />기본값</button>
                 </div>
               </motion.div>
@@ -316,7 +351,13 @@ export default function AdminGamePage() {
               <Shuffle className="h-4 w-4" /> 순서 셔플
             </button>
           </div>
-          <OrnamentPositionEditor prizes={prizes} onUpdate={fetchData} />
+          <OrnamentPositionEditor
+            prizes={prizes}
+            onUpdate={fetchData}
+            backgroundImageUrl={template?.background_image || undefined}
+            spriteImageUrl={template?.sprite_image || undefined}
+            spriteConfig={spriteConfig}
+          />
         </section>
 
         {/* Prize Settings */}
@@ -345,7 +386,7 @@ export default function AdminGamePage() {
                       <button key={prize.id} onClick={() => { setSelectedPrize(prize); setEditName(prize.prize_name); setEditGrade(prize.prize_grade); setModalTab('prize'); }} disabled={prize.is_drawn}
                         className={`relative flex flex-col items-center justify-center rounded-lg p-1 transition-all ${prize.is_drawn ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700 cursor-pointer'} ${prize.prize_grade ? 'ring-1 ring-yellow-500/50' : ''}`}
                         title={`#${prize.slot_number}: ${prize.prize_grade || '꽝'} - ${prize.prize_name}`}>
-                        <Ornament index={prize.slot_number - 1} size={36} individualOffset={{ x: prize.offset_x, y: prize.offset_y }} />
+                        <Ornament index={prize.slot_number - 1} size={36} spriteConfig={spriteConfig} spriteImageUrl={template?.sprite_image || undefined} individualOffset={{ x: prize.offset_x, y: prize.offset_y }} />
                         <span className="text-[10px] text-gray-400">{prize.slot_number}</span>
                         {prize.prize_grade && <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-yellow-500 text-[8px] font-bold text-black">{prize.prize_grade.replace('등', '')}</span>}
                         {draw && <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-green-600 px-1 text-[8px] text-white">{draw.player_name}</span>}
@@ -421,7 +462,7 @@ export default function AdminGamePage() {
               {modalTab === 'prize' ? (
                 <>
                   <div className="mb-4 flex justify-center">
-                    <Ornament index={selectedPrize.slot_number - 1} size={80} individualOffset={{ x: selectedPrize.offset_x, y: selectedPrize.offset_y }} />
+                    <Ornament index={selectedPrize.slot_number - 1} size={80} spriteConfig={spriteConfig} spriteImageUrl={template?.sprite_image || undefined} individualOffset={{ x: selectedPrize.offset_x, y: selectedPrize.offset_y }} />
                   </div>
                   <div className="mb-4 grid grid-cols-3 gap-2">
                     {PRIZE_PRESETS.map((p) => (
@@ -449,11 +490,13 @@ export default function AdminGamePage() {
                   index={selectedPrize.slot_number - 1}
                   currentOffsetX={selectedPrize.offset_x}
                   currentOffsetY={selectedPrize.offset_y}
+                  spriteConfig={spriteConfig}
+                  spriteImageUrl={template?.sprite_image || undefined}
                   onSave={async (offsetX, offsetY) => {
                     await supabase.from('prizes').update({ offset_x: offsetX, offset_y: offsetY }).eq('id', selectedPrize.id);
                     await fetchData();
                   }}
-                  onClose={() => { setSelectedPrize(null); setSpriteConfig(getSpriteConfig()); }}
+                  onClose={() => setSelectedPrize(null)}
                 />
               )}
             </motion.div>
