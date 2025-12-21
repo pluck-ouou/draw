@@ -18,12 +18,12 @@ export default function GamePage() {
 
   const { game, template, playerName, isLoading, stats } = useGame({ inviteCode });
 
-  // 템플릿 설정 (기본값 포함)
-  const clientTitle = template?.client_title || game?.name || 'Lucky Draw';
-  const clientSubtitle = template?.client_subtitle;
-  const themeColor = template?.theme_color || '#facc15';
-  const showSnow = template?.show_snow ?? true;
-  const showStats = template?.show_stats ?? true;
+  // 게임방 설정 (기본값 포함)
+  const clientTitle = game?.client_title || game?.name || 'Lucky Draw';
+  const clientSubtitle = game?.client_subtitle;
+  const themeColor = game?.theme_color || '#facc15';
+  const showSnow = game?.show_snow ?? true;
+  const showStats = game?.show_stats ?? true;
 
   useEffect(() => {
     // Redirect if no player name

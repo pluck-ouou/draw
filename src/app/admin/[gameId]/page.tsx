@@ -31,6 +31,7 @@ import {
   Save,
   Sliders,
   Settings,
+  Palette,
 } from 'lucide-react';
 
 const PRIZE_PRESETS = [
@@ -69,21 +70,21 @@ export default function AdminGamePage() {
 
   const supabase = createClient();
 
-  // 스프라이트 이미지 크기 자동 감지
+  // 스프라이트 이미지 크기 자동 감지 - 항상 실제 이미지 크기로 업데이트
   useEffect(() => {
     const imageUrl = template?.sprite_image;
     if (imageUrl) {
       const img = new window.Image();
       img.onload = () => {
-        setSpriteImageSize({ width: img.naturalWidth, height: img.naturalHeight });
-        // spriteConfig에 imageWidth/Height가 없으면 자동 설정
-        if (!spriteConfig.imageWidth || !spriteConfig.imageHeight) {
-          setSpriteConfig(prev => ({
-            ...prev,
-            imageWidth: img.naturalWidth,
-            imageHeight: img.naturalHeight,
-          }));
-        }
+        const naturalWidth = img.naturalWidth;
+        const naturalHeight = img.naturalHeight;
+        setSpriteImageSize({ width: naturalWidth, height: naturalHeight });
+        // 항상 실제 이미지 크기로 업데이트 (DB 값과 상관없이)
+        setSpriteConfig(prev => ({
+          ...prev,
+          imageWidth: naturalWidth,
+          imageHeight: naturalHeight,
+        }));
       };
       img.src = imageUrl;
     }
@@ -299,6 +300,115 @@ export default function AdminGamePage() {
             <button onClick={() => updateGameStatus('ended')} disabled={isUpdating || game.status === 'ended'} className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-500 disabled:opacity-50"><Square className="h-4 w-4" />종료</button>
             <button onClick={resetGame} disabled={isUpdating} className="flex items-center gap-2 rounded-lg bg-gray-600 px-4 py-2 text-white hover:bg-gray-500 disabled:opacity-50"><RefreshCw className="h-4 w-4" />초기화</button>
             <button onClick={downloadResults} disabled={draws.length === 0} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:opacity-50"><Download className="h-4 w-4" />결과 다운로드</button>
+          </div>
+        </section>
+
+        {/* 클라이언트 꾸미기 설정 */}
+        <section className="mb-6 rounded-xl bg-gray-800/50 p-4">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
+            <Palette className="h-5 w-5" /> 클라이언트 꾸미기
+          </h2>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* 타이틀 설정 */}
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">커스텀 타이틀</label>
+                <input
+                  type="text"
+                  value={game.client_title || ''}
+                  onChange={async (e) => {
+                    const value = e.target.value || null;
+                    setGame({ ...game, client_title: value });
+                    await supabase.from('games').update({ client_title: value }).eq('id', gameId);
+                  }}
+                  placeholder={game.name}
+                  className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">비워두면 게임방 이름이 표시됩니다</p>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">부제목</label>
+                <input
+                  type="text"
+                  value={game.client_subtitle || ''}
+                  onChange={async (e) => {
+                    const value = e.target.value || null;
+                    setGame({ ...game, client_subtitle: value });
+                    await supabase.from('games').update({ client_subtitle: value }).eq('id', gameId);
+                  }}
+                  placeholder="예: 2025 송년회"
+                  className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">테마 컬러</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={game.theme_color || '#facc15'}
+                    onChange={async (e) => {
+                      const value = e.target.value;
+                      setGame({ ...game, theme_color: value });
+                      await supabase.from('games').update({ theme_color: value }).eq('id', gameId);
+                    }}
+                    className="h-10 w-16 cursor-pointer rounded bg-gray-700"
+                  />
+                  <span className="text-sm text-gray-400">{game.theme_color || '#facc15'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 표시 옵션 */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-lg bg-gray-700/50 p-3">
+                <div>
+                  <p className="text-sm text-white">눈 효과</p>
+                  <p className="text-xs text-gray-500">배경에 눈 내리는 효과</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const value = !game.show_snow;
+                    setGame({ ...game, show_snow: value });
+                    await supabase.from('games').update({ show_snow: value }).eq('id', gameId);
+                  }}
+                  className={`relative h-6 w-11 rounded-full transition-colors ${
+                    game.show_snow ? 'bg-green-500' : 'bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
+                      game.show_snow ? 'left-6' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg bg-gray-700/50 p-3">
+                <div>
+                  <p className="text-sm text-white">통계 표시</p>
+                  <p className="text-xs text-gray-500">참여자/당첨자/남은기회</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const value = !game.show_stats;
+                    setGame({ ...game, show_stats: value });
+                    await supabase.from('games').update({ show_stats: value }).eq('id', gameId);
+                  }}
+                  className={`relative h-6 w-11 rounded-full transition-colors ${
+                    game.show_stats ? 'bg-green-500' : 'bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
+                      game.show_stats ? 'left-6' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -539,8 +649,23 @@ export default function AdminGamePage() {
                   spriteConfig={spriteConfig}
                   spriteImageUrl={template?.sprite_image || undefined}
                   onSave={async (offsetX, offsetY) => {
-                    await supabase.from('prizes').update({ offset_x: offsetX, offset_y: offsetY }).eq('id', selectedPrize.id);
-                    await fetchData();
+                    // Optimistic update - 즉시 UI 반영
+                    setPrizes(prev => prev.map(p =>
+                      p.id === selectedPrize.id
+                        ? { ...p, offset_x: offsetX, offset_y: offsetY }
+                        : p
+                    ));
+                    // selectedPrize도 업데이트
+                    setSelectedPrize(prev => prev ? { ...prev, offset_x: offsetX, offset_y: offsetY } : null);
+
+                    // DB 업데이트
+                    const { error } = await supabase.from('prizes').update({ offset_x: offsetX, offset_y: offsetY }).eq('id', selectedPrize.id);
+                    if (error) {
+                      console.error('위치 저장 실패:', error);
+                      // 에러 시 데이터 다시 가져오기
+                      await fetchData();
+                      throw error;
+                    }
                   }}
                   onClose={() => setSelectedPrize(null)}
                 />

@@ -250,26 +250,10 @@ export function SpriteAdjuster({
         </div>
       </div>
 
-      {/* 셀 크기 조정 */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-xs text-gray-400">셀 너비</label>
-          <input
-            type="number"
-            value={config.cellWidth}
-            onChange={(e) => setConfig({ ...config, cellWidth: Number(e.target.value) })}
-            className="w-full rounded bg-gray-700 px-2 py-1 text-sm text-white"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-gray-400">셀 높이</label>
-          <input
-            type="number"
-            value={config.cellHeight}
-            onChange={(e) => setConfig({ ...config, cellHeight: Number(e.target.value) })}
-            className="w-full rounded bg-gray-700 px-2 py-1 text-sm text-white"
-          />
-        </div>
+      {/* 셀 크기 정보 (읽기 전용) */}
+      <div className="text-xs text-gray-500">
+        셀 크기: {config.cellWidth} x {config.cellHeight}px
+        <span className="ml-2 text-gray-600">(스프라이트 설정에서 변경)</span>
       </div>
 
       {/* 버튼 */}

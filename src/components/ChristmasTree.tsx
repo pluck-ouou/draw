@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Ornament, SpriteConfig } from './Ornament';
 import { useGame } from '@/hooks/useGame';
@@ -53,7 +54,28 @@ export function ChristmasTree() {
   // 템플릿 이미지 URL (템플릿이 있으면 사용, 없으면 기본값)
   const backgroundImageUrl = template?.background_image || '/tree.png';
   const spriteImageUrl = template?.sprite_image || undefined;
-  const spriteConfig = template?.sprite_config as SpriteConfig | undefined;
+  const baseSpriteConfig = template?.sprite_config as SpriteConfig | undefined;
+
+  // 스프라이트 이미지 실제 크기를 감지해서 spriteConfig 보정
+  const [spriteConfig, setSpriteConfig] = useState<SpriteConfig | undefined>(baseSpriteConfig);
+
+  useEffect(() => {
+    if (spriteImageUrl) {
+      const img = new window.Image();
+      img.onload = () => {
+        // 실제 이미지 크기로 spriteConfig 업데이트
+        setSpriteConfig(prev => ({
+          ...(baseSpriteConfig || prev || { columns: 10, rows: 10, cellWidth: 154, cellHeight: 154, offsetX: 0, offsetY: 0, gapX: 0, gapY: 0 }),
+          imageWidth: img.naturalWidth,
+          imageHeight: img.naturalHeight,
+        }));
+      };
+      img.src = spriteImageUrl;
+    } else {
+      // 스프라이트 이미지가 없으면 기본 설정 사용
+      setSpriteConfig(baseSpriteConfig);
+    }
+  }, [spriteImageUrl, baseSpriteConfig]);
 
   const handleOrnamentClick = async (slotNumber: number) => {
     if (!canDraw || isDrawing) return;

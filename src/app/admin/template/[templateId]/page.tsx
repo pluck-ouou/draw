@@ -103,24 +103,21 @@ export default function TemplateDetailPage() {
     }
   }, [template?.sprite_config]);
 
-  // 스프라이트 이미지 크기 자동 감지
+  // 스프라이트 이미지 크기 자동 감지 - 항상 실제 이미지 크기로 업데이트
   useEffect(() => {
     const imageUrl = template?.sprite_image;
     if (imageUrl) {
       const img = new window.Image();
       img.onload = () => {
-        setSpriteImageSize({ width: img.naturalWidth, height: img.naturalHeight });
-        // spriteConfig에 imageWidth/Height가 없으면 자동 설정
-        setSpriteConfig(prev => {
-          if (!prev.imageWidth || !prev.imageHeight) {
-            return {
-              ...prev,
-              imageWidth: img.naturalWidth,
-              imageHeight: img.naturalHeight,
-            };
-          }
-          return prev;
-        });
+        const naturalWidth = img.naturalWidth;
+        const naturalHeight = img.naturalHeight;
+        setSpriteImageSize({ width: naturalWidth, height: naturalHeight });
+        // 항상 실제 이미지 크기로 업데이트 (DB 값과 상관없이)
+        setSpriteConfig(prev => ({
+          ...prev,
+          imageWidth: naturalWidth,
+          imageHeight: naturalHeight,
+        }));
       };
       img.src = imageUrl;
     }
@@ -639,119 +636,6 @@ export default function TemplateDetailPage() {
               <p className="mt-2 text-xs text-gray-500">
                 {template.sprite_image ? '업로드됨' : '미설정 (기본 오너먼트 이미지 사용)'}
               </p>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* 클라이언트 꾸미기 설정 */}
-        <motion.section
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mb-6 rounded-xl bg-gray-800/50 p-4"
-        >
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
-            <Palette className="h-5 w-5" /> 클라이언트 꾸미기
-          </h2>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* 타이틀 설정 */}
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs text-gray-400">커스텀 타이틀</label>
-                <input
-                  type="text"
-                  value={template.client_title || ''}
-                  onChange={async (e) => {
-                    const value = e.target.value || null;
-                    await supabase.from('templates').update({ client_title: value }).eq('id', templateId);
-                    setTemplate({ ...template, client_title: value });
-                  }}
-                  placeholder={template.name}
-                  className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
-                />
-                <p className="mt-1 text-xs text-gray-500">비워두면 게임방 이름이 표시됩니다</p>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs text-gray-400">부제목</label>
-                <input
-                  type="text"
-                  value={template.client_subtitle || ''}
-                  onChange={async (e) => {
-                    const value = e.target.value || null;
-                    await supabase.from('templates').update({ client_subtitle: value }).eq('id', templateId);
-                    setTemplate({ ...template, client_subtitle: value });
-                  }}
-                  placeholder="예: 2025 송년회"
-                  className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs text-gray-400">테마 컬러</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={template.theme_color || '#facc15'}
-                    onChange={async (e) => {
-                      const value = e.target.value;
-                      await supabase.from('templates').update({ theme_color: value }).eq('id', templateId);
-                      setTemplate({ ...template, theme_color: value });
-                    }}
-                    className="h-10 w-16 cursor-pointer rounded bg-gray-700"
-                  />
-                  <span className="text-sm text-gray-400">{template.theme_color || '#facc15'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 표시 옵션 */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between rounded-lg bg-gray-700/50 p-3">
-                <div>
-                  <p className="text-sm text-white">눈 효과</p>
-                  <p className="text-xs text-gray-500">배경에 눈 내리는 효과</p>
-                </div>
-                <button
-                  onClick={async () => {
-                    const value = !template.show_snow;
-                    await supabase.from('templates').update({ show_snow: value }).eq('id', templateId);
-                    setTemplate({ ...template, show_snow: value });
-                  }}
-                  className={`relative h-6 w-11 rounded-full transition-colors ${
-                    template.show_snow ? 'bg-green-500' : 'bg-gray-600'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
-                      template.show_snow ? 'left-6' : 'left-1'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg bg-gray-700/50 p-3">
-                <div>
-                  <p className="text-sm text-white">통계 표시</p>
-                  <p className="text-xs text-gray-500">참여자/당첨자/남은기회</p>
-                </div>
-                <button
-                  onClick={async () => {
-                    const value = !template.show_stats;
-                    await supabase.from('templates').update({ show_stats: value }).eq('id', templateId);
-                    setTemplate({ ...template, show_stats: value });
-                  }}
-                  className={`relative h-6 w-11 rounded-full transition-colors ${
-                    template.show_stats ? 'bg-green-500' : 'bg-gray-600'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
-                      template.show_stats ? 'left-6' : 'left-1'
-                    }`}
-                  />
-                </button>
-              </div>
             </div>
           </div>
         </motion.section>
