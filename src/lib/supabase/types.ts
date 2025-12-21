@@ -74,6 +74,12 @@ export interface Template {
   is_default: boolean;
   created_at: string;
   updated_at: string;
+  // 클라이언트 커스터마이징
+  client_title: string | null;
+  client_subtitle: string | null;
+  theme_color: string;
+  show_snow: boolean;
+  show_stats: boolean;
 }
 
 // 템플릿 슬롯 타입

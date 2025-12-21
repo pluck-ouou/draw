@@ -66,39 +66,12 @@ export function ChristmasTree() {
     setSelectedSlot(null);
   };
 
-  const drawnCount = prizes.filter((p) => p.is_drawn).length;
-  const totalCount = prizes.length;
-
   // display_position 기준으로 정렬 (트리에서의 표시 위치)
   // display_position이 1인 prize가 트리의 첫 번째 위치에 표시됨
   const sortedPrizes = [...prizes].sort((a, b) => a.display_position - b.display_position);
 
   return (
     <div className="relative w-full max-w-2xl mx-auto">
-      {/* Status Bar */}
-      <div className="mb-4 flex items-center justify-between rounded-xl bg-gray-800/50 p-3">
-        <div className="flex items-center gap-2">
-          <div
-            className={`h-3 w-3 rounded-full ${
-              isGameActive ? 'bg-green-500 animate-pulse' : 'bg-gray-500'
-            }`}
-          />
-          <span className="text-sm text-gray-300">
-            {game?.status === 'waiting'
-              ? '대기 중'
-              : game?.status === 'active'
-              ? '진행 중'
-              : '종료됨'}
-          </span>
-        </div>
-        <div className="text-sm text-gray-400">
-          <span className="text-green-400 font-bold">{drawnCount}</span>
-          <span className="mx-1">/</span>
-          <span>{totalCount}</span>
-          <span className="ml-1">장식 완성</span>
-        </div>
-      </div>
-
       {/* Tree Container */}
       <div className="relative w-full" style={{ paddingBottom: '100%' }}>
         {/* Tree Background Image */}

@@ -8,7 +8,7 @@ import { ResultModal } from '@/components/ResultModal';
 import { Snowfall } from '@/components/Snowfall';
 import { useGame } from '@/hooks/useGame';
 import { getPlayerName } from '@/lib/utils';
-import { Loader2, Sparkles, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function GamePage() {
@@ -16,7 +16,14 @@ export default function GamePage() {
   const params = useParams();
   const inviteCode = params.inviteCode as string;
 
-  const { game, playerName, isLoading, stats } = useGame({ inviteCode });
+  const { game, template, playerName, isLoading, stats } = useGame({ inviteCode });
+
+  // 템플릿 설정 (기본값 포함)
+  const clientTitle = template?.client_title || game?.name || 'Lucky Draw';
+  const clientSubtitle = template?.client_subtitle;
+  const themeColor = template?.theme_color || '#facc15';
+  const showSnow = template?.show_snow ?? true;
+  const showStats = template?.show_stats ?? true;
 
   useEffect(() => {
     // Redirect if no player name
@@ -53,7 +60,7 @@ export default function GamePage() {
   return (
     <main className="min-h-screen p-4">
       {/* Snowfall Effect */}
-      <Snowfall count={60} />
+      {showSnow && <Snowfall count={60} />}
 
       {/* Header */}
       <motion.header
@@ -62,47 +69,46 @@ export default function GamePage() {
         className="mx-auto mb-4 max-w-4xl"
       >
         <div className="flex items-center justify-between rounded-xl bg-gray-800/50 p-4">
-          <div className="flex items-center gap-3">
-            <Link href={`/${inviteCode}`} className="text-gray-400 hover:text-white transition-colors">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-6 w-6 text-yellow-400" />
-              <div>
-                <h1 className="text-xl font-bold gradient-text">Lucky Draw</h1>
-                <p className="text-xs text-gray-500">{game.name}</p>
-              </div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-6 w-6" style={{ color: themeColor }} />
+            <div>
+              <h1 className="text-xl font-bold" style={{ color: themeColor }}>{clientTitle}</h1>
+              {clientSubtitle && (
+                <p className="text-xs text-gray-400">{clientSubtitle}</p>
+              )}
             </div>
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-400">안녕하세요,</p>
-            <p className="font-bold text-yellow-400">{playerName}님</p>
+            <p className="font-bold" style={{ color: themeColor }}>{playerName}님</p>
           </div>
         </div>
       </motion.header>
 
       {/* Stats */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="mx-auto mb-4 max-w-4xl"
-      >
-        <div className="grid grid-cols-3 gap-2 rounded-xl bg-gray-800/30 p-3 text-center">
-          <div>
-            <p className="text-xs text-gray-500">참여자</p>
-            <p className="text-lg font-bold text-white">{stats.participants}</p>
+      {showStats && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="mx-auto mb-4 max-w-4xl"
+        >
+          <div className="grid grid-cols-3 gap-2 rounded-xl bg-gray-800/30 p-3 text-center">
+            <div>
+              <p className="text-xs text-gray-500">참여자</p>
+              <p className="text-lg font-bold text-white">{stats.participants}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">당첨자</p>
+              <p className="text-lg font-bold text-green-400">{stats.prizeWinners}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">남은 기회</p>
+              <p className="text-lg font-bold" style={{ color: themeColor }}>{stats.remainingSlots}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-gray-500">당첨자</p>
-            <p className="text-lg font-bold text-green-400">{stats.prizeWinners}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">남은 기회</p>
-            <p className="text-lg font-bold text-yellow-400">{stats.remainingSlots}</p>
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
 
       {/* Game Board */}
       <motion.div
