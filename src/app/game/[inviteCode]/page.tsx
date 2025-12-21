@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ChristmasTree } from '@/components/ChristmasTree';
@@ -8,15 +8,24 @@ import { ResultModal } from '@/components/ResultModal';
 import { Snowfall } from '@/components/Snowfall';
 import { useGame } from '@/hooks/useGame';
 import { getPlayerName } from '@/lib/utils';
-import { Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { Loader2, Sparkles, AlertCircle, Volume2, VolumeX } from 'lucide-react';
 import Link from 'next/link';
 
 export default function GamePage() {
   const router = useRouter();
   const params = useParams();
   const inviteCode = params.inviteCode as string;
+  const supabase = createClient();
 
   const { game, template, playerName, isLoading, stats } = useGame({ inviteCode });
+
+  // 배경음악 관련
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [bgmPlaying, setBgmPlaying] = useState(false);
+  const [bgmVolume, setBgmVolume] = useState(0.5);
+  const [audioBlocked, setAudioBlocked] = useState(false); // 자동재생 차단 여부
 
   // 게임방 설정 (기본값 포함)
   const clientTitle = game?.client_title || game?.name || 'Lucky Draw';
@@ -32,6 +41,62 @@ export default function GamePage() {
       router.push(`/${inviteCode}`);
     }
   }, [router, inviteCode, isLoading]);
+
+  // 배경음악 초기 상태 설정
+  useEffect(() => {
+    if (game) {
+      setBgmPlaying(game.bgm_playing ?? false);
+      setBgmVolume(game.bgm_volume ?? 0.5);
+    }
+  }, [game?.bgm_playing, game?.bgm_volume]);
+
+  // 배경음악 재생/정지 처리
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !game?.bgm_url) return;
+
+    audio.volume = isMuted ? 0 : bgmVolume;
+
+    if (bgmPlaying && !isMuted) {
+      // 브라우저 자동재생 정책으로 인해 사용자 상호작용 필요할 수 있음
+      audio.play().then(() => {
+        setAudioBlocked(false);
+      }).catch((e) => {
+        console.log('자동 재생 차단됨 - 사용자 상호작용 필요:', e);
+        setAudioBlocked(true);
+      });
+    } else {
+      audio.pause();
+    }
+  }, [bgmPlaying, bgmVolume, isMuted, game?.bgm_url]);
+
+  // 사용자 상호작용 후 오디오 재생 시도
+  const handleEnableAudio = () => {
+    const audio = audioRef.current;
+    if (audio && bgmPlaying) {
+      audio.play().then(() => {
+        setAudioBlocked(false);
+      }).catch(console.error);
+    }
+  };
+
+  // 실시간 브로드캐스트 수신 (재생/정지/볼륨)
+  useEffect(() => {
+    if (!game?.id) return;
+
+    const channel = supabase.channel(`game-${game.id}`)
+      .on('broadcast', { event: 'bgm_control' }, ({ payload }: { payload: { playing: boolean } }) => {
+        setBgmPlaying(payload.playing);
+      })
+      .on('broadcast', { event: 'bgm_volume' }, ({ payload }: { payload: { volume: number } }) => {
+        setBgmVolume(payload.volume);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [game?.id, supabase]);
 
   if (isLoading) {
     return (
@@ -59,6 +124,11 @@ export default function GamePage() {
 
   return (
     <main className="min-h-screen p-4">
+      {/* 배경음악 오디오 엘리먼트 */}
+      {game?.bgm_url && (
+        <audio ref={audioRef} src={game.bgm_url} loop preload="auto" />
+      )}
+
       {/* Snowfall Effect */}
       {showSnow && <Snowfall count={60} />}
 
@@ -78,9 +148,31 @@ export default function GamePage() {
               )}
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-400">안녕하세요,</p>
-            <p className="font-bold" style={{ color: themeColor }}>{playerName}님</p>
+          <div className="flex items-center gap-3">
+            {/* 음악 컨트롤 버튼 */}
+            {game?.bgm_url && bgmPlaying && (
+              audioBlocked ? (
+                <button
+                  onClick={handleEnableAudio}
+                  className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-2 text-sm text-white hover:bg-purple-500 animate-pulse"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  음악 재생
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsMuted(!isMuted)}
+                  className="rounded-lg bg-gray-700/50 p-2 text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
+                  title={isMuted ? '음소거 해제' : '음소거'}
+                >
+                  {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                </button>
+              )
+            )}
+            <div className="text-right">
+              <p className="text-sm text-gray-400">안녕하세요,</p>
+              <p className="font-bold" style={{ color: themeColor }}>{playerName}님</p>
+            </div>
           </div>
         </div>
       </motion.header>

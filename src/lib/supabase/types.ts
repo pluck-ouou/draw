@@ -15,6 +15,10 @@ export interface Game {
   theme_color: string;
   show_snow: boolean;
   show_stats: boolean;
+  // 배경음악
+  bgm_url: string | null;
+  bgm_playing: boolean;
+  bgm_volume: number; // 0.0 ~ 1.0
 }
 
 export interface Prize {

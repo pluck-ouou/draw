@@ -32,6 +32,11 @@ import {
   Sliders,
   Settings,
   Palette,
+  Music,
+  Volume2,
+  VolumeX,
+  Upload,
+  Trash2,
 } from 'lucide-react';
 
 const PRIZE_PRESETS = [
@@ -409,6 +414,146 @@ export default function AdminGamePage() {
                 </button>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* 배경음악 설정 */}
+        <section className="mb-6 rounded-xl bg-gray-800/50 p-4">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
+            <Music className="h-5 w-5" /> 배경음악
+          </h2>
+
+          <div className="space-y-4">
+            {/* 음악 업로드 */}
+            <div className="flex items-center gap-3">
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm text-white hover:bg-purple-500">
+                <Upload className="h-4 w-4" />
+                음악 업로드
+                <input
+                  type="file"
+                  accept="audio/*,.mp4,.m4a"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setIsUpdating(true);
+                    try {
+                      const fileName = `bgm_${gameId}_${Date.now()}.${file.name.split('.').pop()}`;
+                      const { data, error } = await supabase.storage
+                        .from('game-assets')
+                        .upload(fileName, file, { upsert: true });
+                      if (error) throw error;
+                      const { data: { publicUrl } } = supabase.storage
+                        .from('game-assets')
+                        .getPublicUrl(fileName);
+                      await supabase.from('games').update({ bgm_url: publicUrl }).eq('id', gameId);
+                      setGame({ ...game, bgm_url: publicUrl });
+                      alert('음악이 업로드되었습니다!');
+                    } catch (error) {
+                      console.error('업로드 실패:', error);
+                      alert('업로드에 실패했습니다.');
+                    }
+                    setIsUpdating(false);
+                  }}
+                />
+              </label>
+              {game.bgm_url && (
+                <button
+                  onClick={async () => {
+                    if (!confirm('배경음악을 삭제하시겠습니까?')) return;
+                    setIsUpdating(true);
+                    await supabase.from('games').update({ bgm_url: null, bgm_playing: false }).eq('id', gameId);
+                    setGame({ ...game, bgm_url: null, bgm_playing: false });
+                    setIsUpdating(false);
+                  }}
+                  className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-500"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  삭제
+                </button>
+              )}
+            </div>
+
+            {/* 현재 음악 정보 & 컨트롤 */}
+            {game.bgm_url ? (
+              <div className="rounded-lg bg-gray-700/50 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-gray-300">
+                    <Music className="h-4 w-4" />
+                    <span className="max-w-xs truncate">{game.bgm_url.split('/').pop()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        const newState = !game.bgm_playing;
+                        setGame({ ...game, bgm_playing: newState });
+                        await supabase.from('games').update({ bgm_playing: newState }).eq('id', gameId);
+                        // 실시간 브로드캐스트로 클라이언트에 알림
+                        const channel = supabase.channel(`game-${gameId}`);
+                        await channel.send({
+                          type: 'broadcast',
+                          event: 'bgm_control',
+                          payload: { playing: newState },
+                        });
+                      }}
+                      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm text-white ${
+                        game.bgm_playing ? 'bg-orange-600 hover:bg-orange-500' : 'bg-green-600 hover:bg-green-500'
+                      }`}
+                    >
+                      {game.bgm_playing ? (
+                        <>
+                          <Pause className="h-4 w-4" /> 정지
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4" /> 재생
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 볼륨 조절 */}
+                <div className="flex items-center gap-3">
+                  <VolumeX className="h-4 w-4 text-gray-400" />
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={game.bgm_volume ?? 0.5}
+                    onChange={async (e) => {
+                      const volume = Number(e.target.value);
+                      setGame({ ...game, bgm_volume: volume });
+                      await supabase.from('games').update({ bgm_volume: volume }).eq('id', gameId);
+                      // 실시간 브로드캐스트
+                      const channel = supabase.channel(`game-${gameId}`);
+                      await channel.send({
+                        type: 'broadcast',
+                        event: 'bgm_volume',
+                        payload: { volume },
+                      });
+                    }}
+                    className="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                  />
+                  <Volume2 className="h-4 w-4 text-gray-400" />
+                  <span className="w-12 text-center text-sm text-gray-400">{Math.round((game.bgm_volume ?? 0.5) * 100)}%</span>
+                </div>
+
+                {/* 미리듣기 */}
+                <div className="mt-3">
+                  <audio controls src={game.bgm_url} className="w-full h-8" style={{ filter: 'invert(1)' }} />
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg bg-gray-700/30 p-4 text-center text-sm text-gray-500">
+                배경음악이 없습니다. 음악을 업로드해주세요.
+              </div>
+            )}
+
+            <p className="text-xs text-gray-500">
+              * 재생/정지 버튼을 누르면 모든 클라이언트에 실시간으로 반영됩니다.
+            </p>
           </div>
         </section>
 
