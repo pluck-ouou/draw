@@ -111,13 +111,16 @@ export default function TemplateDetailPage() {
       img.onload = () => {
         setSpriteImageSize({ width: img.naturalWidth, height: img.naturalHeight });
         // spriteConfig에 imageWidth/Height가 없으면 자동 설정
-        if (!spriteConfig.imageWidth || !spriteConfig.imageHeight) {
-          setSpriteConfig(prev => ({
-            ...prev,
-            imageWidth: img.naturalWidth,
-            imageHeight: img.naturalHeight,
-          }));
-        }
+        setSpriteConfig(prev => {
+          if (!prev.imageWidth || !prev.imageHeight) {
+            return {
+              ...prev,
+              imageWidth: img.naturalWidth,
+              imageHeight: img.naturalHeight,
+            };
+          }
+          return prev;
+        });
       };
       img.src = imageUrl;
     }
@@ -191,8 +194,9 @@ export default function TemplateDetailPage() {
     slots.forEach((slot) => {
       const defaultPos = DEFAULT_POSITIONS[slot.slot_number - 1] || { top: 50, left: 50 };
       positions[slot.id] = {
-        top: Number(slot.position_top) || defaultPos.top,
-        left: Number(slot.position_left) || defaultPos.left,
+        // ?? 사용: 0은 유효한 값이므로 null/undefined만 체크
+        top: slot.position_top ?? defaultPos.top,
+        left: slot.position_left ?? defaultPos.left,
       };
     });
     setTempPositions(positions);
