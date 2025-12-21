@@ -456,6 +456,30 @@ export default function AdminGamePage() {
                   <div><label className="mb-1 block text-xs text-gray-400">X 간격 (px)</label><input type="number" value={spriteConfig.gapX} onChange={(e) => setSpriteConfig({ ...spriteConfig, gapX: Number(e.target.value) })} className="w-full rounded-lg bg-gray-700 px-3 py-2 text-white text-sm" /></div>
                   <div><label className="mb-1 block text-xs text-gray-400">Y 간격 (px)</label><input type="number" value={spriteConfig.gapY} onChange={(e) => setSpriteConfig({ ...spriteConfig, gapY: Number(e.target.value) })} className="w-full rounded-lg bg-gray-700 px-3 py-2 text-white text-sm" /></div>
                 </div>
+                {/* 표시 스케일 조정 */}
+                <div className="mt-4">
+                  <label className="mb-1 block text-xs text-gray-400">표시 스케일: {(spriteConfig.displayScale ?? 1.0).toFixed(1)}x ({Math.round((spriteConfig.displayScale ?? 1.0) * 100)}%)</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2.0"
+                      step="0.1"
+                      value={spriteConfig.displayScale ?? 1.0}
+                      onChange={(e) => setSpriteConfig({ ...spriteConfig, displayScale: Number(e.target.value) })}
+                      className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                    />
+                    <input
+                      type="number"
+                      min="0.5"
+                      max="2.0"
+                      step="0.1"
+                      value={spriteConfig.displayScale ?? 1.0}
+                      onChange={(e) => setSpriteConfig({ ...spriteConfig, displayScale: Number(e.target.value) })}
+                      className="w-20 rounded-lg bg-gray-700 px-2 py-1 text-white text-sm text-center"
+                    />
+                  </div>
+                </div>
                 {spriteImageSize && (
                   <div className="mt-2 text-xs text-gray-500">
                     원본 이미지 크기: {spriteImageSize.width} x {spriteImageSize.height}px

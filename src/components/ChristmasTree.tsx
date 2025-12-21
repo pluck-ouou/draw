@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Ornament, SpriteConfig } from './Ornament';
 import { useGame } from '@/hooks/useGame';
 import { useGameStore } from '@/store/gameStore';
+import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Ornament, SpriteConfig } from './Ornament';
 
 // 트리 모양에 맞는 오너먼트 위치 (삼각형 패턴)
 // 각 행의 오너먼트 개수: 1, 3, 5, 7, 9, 11, 13, 15, 17, 19 = 100개
@@ -97,10 +97,10 @@ export function ChristmasTree() {
       {/* Tree Container */}
       <div className="relative w-full" style={{ paddingBottom: '100%' }}>
         {/* Tree Background Image */}
-        <img
+         <img
           src={backgroundImageUrl}
           alt="Christmas Tree"
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+          className="absolute  object-contain pointer-events-none"
           style={{ zIndex: 0 }}
         />
 

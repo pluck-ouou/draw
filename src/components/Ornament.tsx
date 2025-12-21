@@ -12,6 +12,7 @@ export interface SpriteConfig {
   gapY: number;         // 셀 간 Y 간격
   imageWidth?: number;  // 원본 이미지 너비 (선택)
   imageHeight?: number; // 원본 이미지 높이 (선택)
+  displayScale?: number; // 표시 스케일 (1.0 = 100%, 1.4 = 140%)
 }
 
 // 개별 오너먼트 오프셋 타입
@@ -33,6 +34,7 @@ export const DEFAULT_SPRITE_CONFIG: SpriteConfig = {
   gapY: 0,
   imageWidth: 1536,
   imageHeight: 1536,
+  displayScale: 1.0,
 };
 
 interface OrnamentProps {
@@ -85,6 +87,9 @@ export function Ornament({
   // 스프라이트 이미지 URL (props로 받거나 기본값)
   const imageUrl = spriteImageUrl || '/selceted_ornament.png';
 
+  // 표시 스케일 (기본값 1.0)
+  const displayScale = config.displayScale ?? 1.0;
+
   return (
     <div
       onClick={onClick}
@@ -96,6 +101,7 @@ export function Ornament({
         backgroundSize: `${totalWidth * scale}px ${totalHeight * scale}px`,
         backgroundPosition: `-${srcX * scale}px -${srcY * scale}px`,
         backgroundRepeat: 'no-repeat',
+        transform: displayScale !== 1.0 ? `scale(${displayScale})` : undefined,
       }}
       title={`Ornament #${safeIndex + 1}`}
     />
