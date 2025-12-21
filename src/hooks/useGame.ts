@@ -195,6 +195,40 @@ export function useGame(options: UseGameOptions = {}) {
             useGameStore.getState().setGame(updatedGame);
           }
         })
+        .on('broadcast', { event: 'game_reset' }, async () => {
+          console.log('[useGame] Game reset detected, refetching data...');
+          // 게임 초기화 시 전체 데이터 다시 로드
+          const gameId = useGameStore.getState().game?.id;
+          if (!gameId) return;
+
+          try {
+            const [{ data: gameData }, { data: prizesData }, { data: drawsData }] = await Promise.all([
+              supabase.from('games').select('*').eq('id', gameId).single(),
+              supabase.from('prizes').select('*').eq('game_id', gameId).order('slot_number'),
+              supabase.from('draws').select('*').eq('game_id', gameId),
+            ]);
+
+            if (gameData) useGameStore.getState().setGame(gameData);
+            if (prizesData) useGameStore.getState().setPrizes(prizesData);
+
+            // draws가 삭제되었으므로 빈 배열 또는 새 데이터로 설정
+            useGameStore.getState().setDraws(drawsData || []);
+
+            // 참여 상태 초기화 (draws가 비었으면)
+            if (!drawsData || drawsData.length === 0) {
+              useGameStore.getState().setHasParticipated(false);
+              useGameStore.getState().setMyDraw(null);
+            } else {
+              // 현재 세션의 참여 여부 확인
+              const sid = getSessionId();
+              const myDrawRecord = drawsData.find((d: Draw) => d.session_id === sid);
+              useGameStore.getState().setHasParticipated(!!myDrawRecord);
+              useGameStore.getState().setMyDraw(myDrawRecord || null);
+            }
+          } catch (error) {
+            console.error('[useGame] Failed to refetch after game reset:', error);
+          }
+        })
         .on(
           'postgres_changes',
           {

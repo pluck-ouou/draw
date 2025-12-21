@@ -158,6 +158,15 @@ export default function AdminGamePage() {
     if (!confirm('정말 게임을 초기화하시겠습니까?')) return;
     setIsUpdating(true);
     await supabase.rpc('reset_game', { p_game_id: gameId });
+
+    // 클라이언트에게 게임 초기화 알림 (실시간 구독용)
+    const channel = supabase.channel(`game-${gameId}`);
+    await channel.send({
+      type: 'broadcast',
+      event: 'game_reset',
+      payload: { game_id: gameId },
+    });
+
     await fetchData();
     setIsUpdating(false);
   };
