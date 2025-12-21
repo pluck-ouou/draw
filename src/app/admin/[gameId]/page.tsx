@@ -108,9 +108,13 @@ export default function AdminGamePage() {
           .single();
         if (templateData) {
           setTemplate(templateData);
-          // 템플릿의 sprite_config 적용
+          // 템플릿의 sprite_config 적용 (imageWidth/imageHeight 유지)
           if (templateData.sprite_config) {
-            setSpriteConfig(templateData.sprite_config as SpriteConfig);
+            setSpriteConfig(prev => ({
+              ...(templateData.sprite_config as SpriteConfig),
+              imageWidth: (templateData.sprite_config as SpriteConfig).imageWidth || prev.imageWidth,
+              imageHeight: (templateData.sprite_config as SpriteConfig).imageHeight || prev.imageHeight,
+            }));
           }
         }
       }

@@ -82,6 +82,7 @@ export default function TemplateDetailPage() {
   // 스프라이트 전역 설정
   const [showSpriteSettings, setShowSpriteSettings] = useState(false);
   const [spriteConfig, setSpriteConfig] = useState<SpriteConfig>(DEFAULT_SPRITE_CONFIG);
+  const [spriteImageSize, setSpriteImageSize] = useState<{ width: number; height: number } | null>(null);
 
   // 이미지 업로드 상태
   const [isUploadingBg, setIsUploadingBg] = useState(false);
@@ -91,12 +92,36 @@ export default function TemplateDetailPage() {
 
   const supabase = createClient();
 
-  // 스프라이트 설정 불러오기 (템플릿 DB에서)
+  // 스프라이트 설정 불러오기 (템플릿 DB에서, imageWidth/imageHeight 유지)
   useEffect(() => {
     if (template?.sprite_config) {
-      setSpriteConfig(template.sprite_config as SpriteConfig);
+      setSpriteConfig(prev => ({
+        ...(template.sprite_config as SpriteConfig),
+        imageWidth: (template.sprite_config as SpriteConfig).imageWidth || prev.imageWidth,
+        imageHeight: (template.sprite_config as SpriteConfig).imageHeight || prev.imageHeight,
+      }));
     }
   }, [template?.sprite_config]);
+
+  // 스프라이트 이미지 크기 자동 감지
+  useEffect(() => {
+    const imageUrl = template?.sprite_image;
+    if (imageUrl) {
+      const img = new window.Image();
+      img.onload = () => {
+        setSpriteImageSize({ width: img.naturalWidth, height: img.naturalHeight });
+        // spriteConfig에 imageWidth/Height가 없으면 자동 설정
+        if (!spriteConfig.imageWidth || !spriteConfig.imageHeight) {
+          setSpriteConfig(prev => ({
+            ...prev,
+            imageWidth: img.naturalWidth,
+            imageHeight: img.naturalHeight,
+          }));
+        }
+      };
+      img.src = imageUrl;
+    }
+  }, [template?.sprite_image]);
 
   // 배경 이미지 비율 가져오기
   useEffect(() => {
@@ -158,8 +183,31 @@ export default function TemplateDetailPage() {
     fetchData();
   }, [templateId]);
 
-  // 슬롯 클릭 핸들러
+  // slots가 변경되면 tempPositions 업데이트 (게임방과 동일한 방식)
+  useEffect(() => {
+    if (slots.length === 0) return;
+
+    const positions: Record<string, { top: number; left: number }> = {};
+    slots.forEach((slot) => {
+      const defaultPos = DEFAULT_POSITIONS[slot.slot_number - 1] || { top: 50, left: 50 };
+      positions[slot.id] = {
+        top: Number(slot.position_top) || defaultPos.top,
+        left: Number(slot.position_left) || defaultPos.left,
+      };
+    });
+    setTempPositions(positions);
+  }, [slots]);
+
+  // 드래그 여부 추적 (드래그 후 클릭 방지)
+  const [wasDragging, setWasDragging] = useState(false);
+
+  // 슬롯 클릭 핸들러 (드래그 후에는 모달 안 열림)
   const handleSlotClick = (slot: TemplateSlot) => {
+    // 드래그 직후에는 클릭 무시
+    if (wasDragging) {
+      setWasDragging(false);
+      return;
+    }
     setSelectedSlot(slot);
     setShowSlotModal(true);
     setModalTab('sprite');
@@ -171,10 +219,14 @@ export default function TemplateDetailPage() {
     e.stopPropagation();
     setSelectedSlot(slot);
     setIsDragging(true);
+    setWasDragging(false);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || !selectedSlot || !containerRef.current) return;
+
+    // 드래그 중임을 표시
+    setWasDragging(true);
 
     const rect = containerRef.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -269,16 +321,26 @@ export default function TemplateDetailPage() {
     }
   };
 
-  // 스프라이트 오프셋 저장
+  // 스프라이트 오프셋 저장 (트리 배치 위치도 함께 저장)
   const saveSpriteOffset = async (offsetX: number, offsetY: number) => {
     if (!selectedSlot) return;
 
+    // 현재 드래그한 트리 배치 위치도 함께 저장
+    const pos = tempPositions[selectedSlot.id];
+    const updateData: Record<string, number> = {
+      offset_x: offsetX,
+      offset_y: offsetY,
+    };
+
+    // 트리 배치 위치가 있으면 함께 저장
+    if (pos) {
+      updateData.position_top = Math.round(pos.top * 100) / 100;
+      updateData.position_left = Math.round(pos.left * 100) / 100;
+    }
+
     await supabase
       .from('template_slots')
-      .update({
-        offset_x: offsetX,
-        offset_y: offsetY,
-      })
+      .update(updateData)
       .eq('id', selectedSlot.id);
 
     await fetchData();
@@ -697,13 +759,24 @@ export default function TemplateDetailPage() {
                     />
                   </div>
                 </div>
+                {spriteImageSize && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    원본 이미지 크기: {spriteImageSize.width} x {spriteImageSize.height}px
+                  </div>
+                )}
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={async () => {
                       try {
+                        // 이미지 크기가 있으면 함께 저장
+                        const configToSave = {
+                          ...spriteConfig,
+                          imageWidth: spriteImageSize?.width || spriteConfig.imageWidth,
+                          imageHeight: spriteImageSize?.height || spriteConfig.imageHeight,
+                        };
                         await supabase
                           .from('templates')
-                          .update({ sprite_config: spriteConfig })
+                          .update({ sprite_config: configToSave })
                           .eq('id', templateId);
                         await fetchData();
                         alert('저장되었습니다.');
