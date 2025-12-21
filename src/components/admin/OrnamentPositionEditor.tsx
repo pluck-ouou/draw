@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Ornament, SpriteConfig } from '../Ornament';
-import { Prize } from '@/lib/supabase/types';
 import { createClient } from '@/lib/supabase/client';
-import { Save, RefreshCw, Loader2, Move, ZoomIn, ZoomOut } from 'lucide-react';
+import { Prize } from '@/lib/supabase/types';
+import { motion } from 'framer-motion';
+import { Loader2, Move, RefreshCw, Save, ZoomIn, ZoomOut } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Ornament, SpriteConfig } from '../Ornament';
 
 // 기본 트리 위치 (삼각형 패턴)
 const TREE_ROWS = [
@@ -238,7 +238,7 @@ export function OrnamentPositionEditor({
           <img
             src={backgroundImageUrl || '/tree.png'}
             alt="Tree"
-            className="absolute inset-0 w-full h-full object-contain pointer-events-none opacity-50"
+            className="absolute object-contain pointer-events-none opacity-50"
           />
 
           {/* 오너먼트들 */}
