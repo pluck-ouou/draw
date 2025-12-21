@@ -118,20 +118,38 @@ export function ChristmasTree() {
             // 뽑힌 오너먼트는 숨김
             if (isDrawn) return null;
 
+            // 각 오너먼트마다 다른 흔들림 패턴
+            const swingDuration = 2 + (index % 5) * 0.3; // 2~3.2초
+            const swingDelay = (index % 7) * 0.2; // 시작 딜레이
+            const swingAmount = 3 + (index % 3); // 3~5도
+
             return (
               <motion.div
                 key={prize.id}
-                className="absolute"
+                className="absolute origin-top"
                 style={{
                   top: `${top}%`,
                   left: `${left}%`,
                   transform: 'translate(-50%, -50%)',
                 }}
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0, scale: 0, rotate: 0 }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  rotate: [swingAmount, -swingAmount, swingAmount],
+                }}
                 exit={{ opacity: 0, scale: 0 }}
-                transition={{ delay: index * 0.01 }}
-                whileHover={canDraw ? { scale: 1.3, zIndex: 20 } : undefined}
+                transition={{
+                  opacity: { delay: index * 0.01, duration: 0.3 },
+                  scale: { delay: index * 0.01, duration: 0.3 },
+                  rotate: {
+                    delay: swingDelay,
+                    duration: swingDuration,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }
+                }}
+                whileHover={canDraw ? { scale: 1.3, zIndex: 20, rotate: 0 } : undefined}
                 whileTap={canDraw ? { scale: 0.9 } : undefined}
               >
                 <button
