@@ -96,6 +96,9 @@ export default function AdminGamePage() {
   // 스폰서 입력
   const [newSponsor, setNewSponsor] = useState<Sponsor>({ name: '', logo_url: '', link_url: '' });
 
+  // 아이템 개수 조정
+  const [desiredSlotCount, setDesiredSlotCount] = useState<number>(0);
+
   const supabase = createClient();
 
   // 스프라이트 이미지 크기 자동 감지 - 항상 실제 이미지 크기로 업데이트
@@ -164,6 +167,13 @@ export default function AdminGamePage() {
 
     return () => { supabase.removeChannel(channel); };
   }, [fetchData, gameId, supabase]);
+
+  // desiredSlotCount 초기화
+  useEffect(() => {
+    if (prizes.length > 0) {
+      setDesiredSlotCount(prizes.length);
+    }
+  }, [prizes.length]);
 
   const getGameUrl = () => {
     if (typeof window === 'undefined') return '';
@@ -310,6 +320,70 @@ export default function AdminGamePage() {
     remaining: prizes.filter((p) => !p.is_drawn).length,
     winners: draws.filter((d) => prizes.find((p) => p.id === d.prize_id)?.prize_grade !== null).length,
     prizeCount: prizes.filter((p) => p.prize_grade !== null).length,
+  };
+
+  const maxSlots = template?.total_slots || 100; // 템플릿 슬롯 수 또는 기본값 100
+
+  const adjustSlotCount = async (newCount: number) => {
+    if (newCount < 1 || newCount > maxSlots) return;
+    if (newCount === prizes.length) return;
+
+    const drawnCount = prizes.filter(p => p.is_drawn).length;
+    if (newCount < drawnCount) {
+      alert(`이미 ${drawnCount}개의 슬롯이 뽑혔습니다. 최소 ${drawnCount}개 이상이어야 합니다.`);
+      setDesiredSlotCount(prizes.length);
+      return;
+    }
+
+    if (!confirm(`슬롯 개수를 ${prizes.length}개에서 ${newCount}개로 변경하시겠습니까?`)) {
+      setDesiredSlotCount(prizes.length);
+      return;
+    }
+
+    setIsUpdating(true);
+
+    try {
+      if (newCount < prizes.length) {
+        // 슬롯 줄이기 - 뒤에서부터 뽑히지 않은 것들 삭제
+        const sortedPrizes = [...prizes].sort((a, b) => b.slot_number - a.slot_number);
+        const toDelete = sortedPrizes
+          .filter(p => !p.is_drawn)
+          .slice(0, prizes.length - newCount);
+
+        for (const prize of toDelete) {
+          await supabase.from('prizes').delete().eq('id', prize.id);
+        }
+      } else {
+        // 슬롯 늘리기 - 새 슬롯 추가
+        const currentMax = Math.max(...prizes.map(p => p.slot_number), 0);
+        const newPrizes = [];
+
+        for (let i = currentMax + 1; i <= currentMax + (newCount - prizes.length); i++) {
+          newPrizes.push({
+            game_id: gameId,
+            slot_number: i,
+            prize_name: '꽝',
+            prize_grade: null,
+            is_drawn: false,
+            offset_x: 0,
+            offset_y: 0,
+            display_position: i,
+          });
+        }
+
+        await supabase.from('prizes').insert(newPrizes);
+      }
+
+      // games 테이블의 total_slots도 업데이트
+      await supabase.from('games').update({ total_slots: newCount }).eq('id', gameId);
+
+      await fetchData();
+    } catch (error) {
+      console.error('슬롯 개수 변경 실패:', error);
+      alert('슬롯 개수 변경에 실패했습니다.');
+    }
+
+    setIsUpdating(false);
   };
 
   return (
@@ -1144,6 +1218,67 @@ export default function AdminGamePage() {
               <span className={`rounded-full px-2 py-1 ${game.footer_enabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'}`}>푸터</span>
             </div>
           )}
+        </section>
+
+        {/* 아이템 개수 설정 */}
+        <section className="mb-6 rounded-xl bg-gray-800/50 p-4">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
+            <Hash className="h-5 w-5" /> 아이템 개수 설정
+          </h2>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-400">현재:</span>
+              <span className="text-xl font-bold text-yellow-400">{prizes.length}개</span>
+              {template && (
+                <span className="text-sm text-gray-500">(템플릿 최대: {template.total_slots}개)</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => adjustSlotCount(desiredSlotCount - 10)}
+                disabled={isUpdating || desiredSlotCount <= 10}
+                className="rounded-lg bg-gray-700 px-3 py-2 text-white hover:bg-gray-600 disabled:opacity-50"
+              >
+                -10
+              </button>
+              <button
+                onClick={() => adjustSlotCount(desiredSlotCount - 1)}
+                disabled={isUpdating || desiredSlotCount <= 1}
+                className="rounded-lg bg-gray-700 px-3 py-2 text-white hover:bg-gray-600 disabled:opacity-50"
+              >
+                -1
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={maxSlots}
+                value={desiredSlotCount}
+                onChange={(e) => setDesiredSlotCount(Math.max(1, Math.min(maxSlots, Number(e.target.value))))}
+                onBlur={() => adjustSlotCount(desiredSlotCount)}
+                onKeyDown={(e) => e.key === 'Enter' && adjustSlotCount(desiredSlotCount)}
+                className="w-20 rounded-lg bg-gray-700 px-3 py-2 text-center text-white"
+              />
+              <button
+                onClick={() => adjustSlotCount(desiredSlotCount + 1)}
+                disabled={isUpdating || desiredSlotCount >= maxSlots}
+                className="rounded-lg bg-gray-700 px-3 py-2 text-white hover:bg-gray-600 disabled:opacity-50"
+              >
+                +1
+              </button>
+              <button
+                onClick={() => adjustSlotCount(desiredSlotCount + 10)}
+                disabled={isUpdating || desiredSlotCount + 10 > maxSlots}
+                className="rounded-lg bg-gray-700 px-3 py-2 text-white hover:bg-gray-600 disabled:opacity-50"
+              >
+                +10
+              </button>
+            </div>
+            {stats.drawn > 0 && (
+              <p className="text-xs text-orange-400">
+                ⚠️ 이미 {stats.drawn}개가 뽑혔으므로 최소 {stats.drawn}개 이상 유지해야 합니다.
+              </p>
+            )}
+          </div>
         </section>
 
         {/* Stats */}

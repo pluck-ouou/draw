@@ -188,7 +188,7 @@ export default function GamePage() {
         />
       )}
 
-      <div className="p-4">
+      <div className="p-4 pb-20">
         {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: -20 }}
@@ -289,17 +289,19 @@ export default function GamePage() {
           <ChristmasTree />
         </motion.div>
 
-        {/* Instructions */}
+{/* Instructions - 하단 고정 */}
         {game?.status === 'active' && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="mx-auto mt-4 max-w-4xl text-center"
+            className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-gray-900 via-gray-900/95 to-transparent pb-4 pt-8"
           >
-            <p className="text-sm text-gray-500">
-              마음에 드는 오너먼트를 선택해서 경품을 확인하세요!
-            </p>
+            <div className="mx-auto max-w-4xl px-4 text-center">
+              <p className="text-sm text-gray-400">
+                마음에 드는 오너먼트를 선택해서 경품을 확인하세요!
+              </p>
+            </div>
           </motion.div>
         )}
 
