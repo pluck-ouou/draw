@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 import type { Template, TemplateSlot } from '@/lib/supabase/types';
 import { Ornament, SpriteConfig, DEFAULT_SPRITE_CONFIG } from '@/components/Ornament';
 import { SpriteAdjuster } from '@/components/SpriteAdjuster';
@@ -24,6 +25,9 @@ import {
   Upload,
   Image,
   Trash2,
+  LogOut,
+  Pencil,
+  Check,
 } from 'lucide-react';
 
 // 기본 트리 위치 (삼각형 패턴)
@@ -62,6 +66,9 @@ export default function TemplateDetailPage() {
   const router = useRouter();
   const templateId = params.templateId as string;
 
+  // 템플릿 관리는 슈퍼관리자만 가능 (gameId 없이 호출)
+  const { isLoading: authLoading, isAuthenticated, isSuper, profile, logout } = useAdminAuth();
+
   const [template, setTemplate] = useState<Template | null>(null);
   const [slots, setSlots] = useState<TemplateSlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,6 +85,10 @@ export default function TemplateDetailPage() {
   // 모달 상태
   const [showSlotModal, setShowSlotModal] = useState(false);
   const [modalTab, setModalTab] = useState<'position' | 'sprite'>('position');
+
+  // 이름 편집 상태
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState('');
 
   // 스프라이트 전역 설정
   const [showSpriteSettings, setShowSpriteSettings] = useState(false);
@@ -303,6 +314,27 @@ export default function TemplateDetailPage() {
     }
   };
 
+  // 템플릿 이름 변경
+  const saveTemplateName = async () => {
+    if (!editName.trim()) {
+      alert('템플릿 이름을 입력하세요.');
+      return;
+    }
+
+    try {
+      await supabase
+        .from('templates')
+        .update({ name: editName.trim(), updated_at: new Date().toISOString() })
+        .eq('id', templateId);
+
+      await fetchData();
+      setIsEditingName(false);
+    } catch (error) {
+      console.error('이름 변경 실패:', error);
+      alert('이름 변경에 실패했습니다.');
+    }
+  };
+
   // 기본 템플릿으로 설정
   const setAsDefault = async () => {
     if (!confirm('이 템플릿을 기본 템플릿으로 설정하시겠습니까?')) return;
@@ -446,13 +478,15 @@ export default function TemplateDetailPage() {
     e.target.value = ''; // 같은 파일 다시 선택 가능하도록
   };
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-purple-400" />
       </div>
     );
   }
+
+  if (!isAuthenticated) return null; // 리다이렉트 중
 
   if (!template) {
     return (
@@ -473,19 +507,76 @@ export default function TemplateDetailPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-6"
         >
-          <Link
-            href="/admin"
-            className="mb-4 inline-flex items-center gap-2 text-gray-400 hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            관리자로 돌아가기
-          </Link>
+          <div className="mb-4 flex items-center justify-between">
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-2 text-gray-400 hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              관리자로 돌아가기
+            </Link>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-xs text-gray-400">{profile?.email}</p>
+                <p className="text-xs text-purple-400">
+                  {isSuper ? '슈퍼관리자' : '관리자'}
+                </p>
+              </div>
+              <button
+                onClick={logout}
+                className="rounded-lg bg-gray-700 p-2 text-gray-400 hover:bg-gray-600 hover:text-white"
+                title="로그아웃"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Palette className="h-8 w-8 text-purple-400" />
               <div>
-                <h1 className="text-2xl font-bold text-white">{template.name}</h1>
+                {isEditingName ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveTemplateName();
+                        if (e.key === 'Escape') setIsEditingName(false);
+                      }}
+                      className="rounded-lg bg-gray-700 px-3 py-1 text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      autoFocus
+                    />
+                    <button
+                      onClick={saveTemplateName}
+                      className="rounded-lg bg-green-600 p-1.5 text-white hover:bg-green-500"
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setIsEditingName(false)}
+                      className="rounded-lg bg-gray-600 p-1.5 text-white hover:bg-gray-500"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-white">{template.name}</h1>
+                    <button
+                      onClick={() => {
+                        setEditName(template.name);
+                        setIsEditingName(true);
+                      }}
+                      className="rounded-lg p-1 text-gray-400 hover:bg-gray-700 hover:text-white"
+                      title="이름 변경"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
                 {template.description && (
                   <p className="text-sm text-gray-400">{template.description}</p>
                 )}

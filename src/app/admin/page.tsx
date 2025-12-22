@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 import type { Game, Template, TemplateSlot } from '@/lib/supabase/types';
 import Link from 'next/link';
 import {
@@ -18,11 +19,14 @@ import {
   Copy,
   Check,
   Trash2,
+  LogOut,
 } from 'lucide-react';
 
 type TabType = 'games' | 'templates';
 
 export default function AdminPage() {
+  const { isLoading: authLoading, isAuthenticated, isSuper, profile, logout } = useAdminAuth();
+
   const [activeTab, setActiveTab] = useState<TabType>('games');
   const [games, setGames] = useState<Game[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -253,12 +257,16 @@ export default function AdminPage() {
     }
   };
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-yellow-400" />
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return null; // 리다이렉트 중
   }
 
   return (
@@ -270,9 +278,26 @@ export default function AdminPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-6"
         >
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-8 w-8 text-yellow-400" />
-            <h1 className="text-3xl font-bold gradient-text">관리자</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-8 w-8 text-yellow-400" />
+              <h1 className="text-3xl font-bold gradient-text">관리자</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-sm text-gray-400">{profile?.email}</p>
+                <p className="text-xs text-yellow-400">
+                  {isSuper ? '슈퍼관리자' : '게임 관리자'}
+                </p>
+              </div>
+              <button
+                onClick={logout}
+                className="rounded-lg bg-gray-700 p-2 text-gray-400 hover:bg-gray-600 hover:text-white"
+                title="로그아웃"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
+            </div>
           </div>
           <p className="mt-1 text-gray-400">게임과 템플릿을 관리하세요</p>
         </motion.header>

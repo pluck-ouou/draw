@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { createClient } from '@/lib/supabase/client';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 import type { Game, Prize, Draw } from '@/lib/supabase/types';
 import { Ornament, SpriteConfig, DEFAULT_SPRITE_CONFIG } from '@/components/Ornament';
 import type { Template } from '@/lib/supabase/types';
@@ -37,6 +38,7 @@ import {
   VolumeX,
   Upload,
   Trash2,
+  LogOut,
 } from 'lucide-react';
 
 const PRIZE_PRESETS = [
@@ -50,7 +52,11 @@ const PRIZE_PRESETS = [
 
 export default function AdminGamePage() {
   const params = useParams();
+  const router = useRouter();
   const gameId = params.gameId as string;
+
+  // 인증 체크 (gameId에 대한 권한 확인)
+  const { isLoading: authLoading, isAuthenticated, isSuper, profile, logout } = useAdminAuth({ gameId });
 
   const [game, setGame] = useState<Game | null>(null);
   const [template, setTemplate] = useState<Template | null>(null);
@@ -177,6 +183,27 @@ export default function AdminGamePage() {
     setIsUpdating(false);
   };
 
+  const deleteGame = async () => {
+    if (!confirm(`정말 "${game?.name}" 게임방을 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.\n모든 경품, 뽑기 기록, 관련 데이터가 삭제됩니다.`)) return;
+    if (!confirm('정말로 삭제하시겠습니까? (최종 확인)')) return;
+
+    setIsUpdating(true);
+    try {
+      // 관련 데이터 삭제 (FK 제약 조건으로 인해 순서 중요)
+      await supabase.from('draws').delete().eq('game_id', gameId);
+      await supabase.from('prizes').delete().eq('game_id', gameId);
+      await supabase.from('admin_profiles').delete().eq('game_id', gameId);
+      await supabase.from('games').delete().eq('id', gameId);
+
+      alert('게임방이 삭제되었습니다.');
+      router.push('/admin');
+    } catch (error) {
+      console.error('삭제 실패:', error);
+      alert('게임방 삭제에 실패했습니다.');
+      setIsUpdating(false);
+    }
+  };
+
   const updatePrize = async () => {
     if (!selectedPrize) return;
     setIsUpdating(true);
@@ -256,7 +283,8 @@ export default function AdminGamePage() {
     a.click();
   };
 
-  if (isLoading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-yellow-400" /></div>;
+  if (authLoading || isLoading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-yellow-400" /></div>;
+  if (!isAuthenticated) return null; // 리다이렉트 중
   if (!game) return <div className="flex min-h-screen items-center justify-center text-white">게임을 찾을 수 없습니다</div>;
 
   const stats = {
@@ -272,9 +300,26 @@ export default function AdminGamePage() {
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-          <Link href="/admin" className="mb-2 inline-flex items-center gap-1 text-gray-400 hover:text-white">
-            <ArrowLeft className="h-4 w-4" /> 목록으로
-          </Link>
+          <div className="mb-2 flex items-center justify-between">
+            <Link href="/admin" className="inline-flex items-center gap-1 text-gray-400 hover:text-white">
+              <ArrowLeft className="h-4 w-4" /> 목록으로
+            </Link>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-xs text-gray-400">{profile?.email}</p>
+                <p className="text-xs text-yellow-400">
+                  {isSuper ? '슈퍼관리자' : '게임 관리자'}
+                </p>
+              </div>
+              <button
+                onClick={logout}
+                className="rounded-lg bg-gray-700 p-2 text-gray-400 hover:bg-gray-600 hover:text-white"
+                title="로그아웃"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold gradient-text">{game.name}</h1>
@@ -305,6 +350,7 @@ export default function AdminGamePage() {
             <button onClick={() => updateGameStatus('ended')} disabled={isUpdating || game.status === 'ended'} className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-500 disabled:opacity-50"><Square className="h-4 w-4" />종료</button>
             <button onClick={resetGame} disabled={isUpdating} className="flex items-center gap-2 rounded-lg bg-gray-600 px-4 py-2 text-white hover:bg-gray-500 disabled:opacity-50"><RefreshCw className="h-4 w-4" />초기화</button>
             <button onClick={downloadResults} disabled={draws.length === 0} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:opacity-50"><Download className="h-4 w-4" />결과 다운로드</button>
+            <button onClick={deleteGame} disabled={isUpdating} className="flex items-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-white hover:bg-red-600 disabled:opacity-50"><Trash2 className="h-4 w-4" />삭제</button>
           </div>
         </section>
 
