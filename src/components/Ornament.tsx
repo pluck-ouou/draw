@@ -45,6 +45,7 @@ interface OrnamentProps {
   spriteConfig?: SpriteConfig; // 외부에서 주입 가능
   individualOffset?: IndividualOffset; // 개별 오프셋 (외부에서 주입 가능)
   spriteImageUrl?: string; // 스프라이트 이미지 URL (외부에서 주입 가능)
+  itemImageUrl?: string | null; // 개별 이미지 URL (있으면 스프라이트 대신 사용)
 }
 
 const COLUMNS = 10;
@@ -59,7 +60,28 @@ export function Ornament({
   spriteConfig,
   individualOffset,
   spriteImageUrl,
+  itemImageUrl,
 }: OrnamentProps) {
+  // 개별 이미지 모드: itemImageUrl이 있으면 스프라이트 대신 단일 이미지 사용
+  if (itemImageUrl) {
+    return (
+      <div
+        onClick={onClick}
+        className={`${onClick ? 'cursor-pointer hover:scale-110 transition-transform' : ''} ${className}`}
+        style={{
+          width: size,
+          height: size,
+          backgroundImage: `url(${itemImageUrl})`,
+          backgroundSize: 'contain',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+        title={`Item #${index + 1}`}
+      />
+    );
+  }
+
+  // 스프라이트 모드 (기존 동작)
   // 스프라이트 설정 (props로 받거나 기본값 - localStorage 사용 안함)
   const config = spriteConfig || DEFAULT_SPRITE_CONFIG;
 

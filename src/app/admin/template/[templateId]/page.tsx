@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
-import type { Template, TemplateSlot } from '@/lib/supabase/types';
+import type { Template, TemplateSlot, ItemMode } from '@/lib/supabase/types';
 import { Ornament, SpriteConfig, DEFAULT_SPRITE_CONFIG } from '@/components/Ornament';
 import { SpriteAdjuster } from '@/components/SpriteAdjuster';
 import Link from 'next/link';
@@ -28,6 +28,8 @@ import {
   LogOut,
   Pencil,
   Check,
+  Grid3X3,
+  ImagePlus,
 } from 'lucide-react';
 
 // 기본 트리 위치 (삼각형 패턴)
@@ -101,7 +103,19 @@ export default function TemplateDetailPage() {
   const bgInputRef = useRef<HTMLInputElement>(null);
   const spriteInputRef = useRef<HTMLInputElement>(null);
 
+  // 아이템 모드 관련 상태
+  const [itemMode, setItemMode] = useState<ItemMode>('sprite');
+  const [isUploadingItemImage, setIsUploadingItemImage] = useState<Record<string, boolean>>({});
+  const [isChangingMode, setIsChangingMode] = useState(false);
+
   const supabase = createClient();
+
+  // 템플릿 아이템 모드 불러오기
+  useEffect(() => {
+    if (template?.item_mode) {
+      setItemMode(template.item_mode);
+    }
+  }, [template?.item_mode]);
 
   // 스프라이트 설정 불러오기 (템플릿 DB에서, imageWidth/imageHeight 유지)
   useEffect(() => {
@@ -478,6 +492,108 @@ export default function TemplateDetailPage() {
     e.target.value = ''; // 같은 파일 다시 선택 가능하도록
   };
 
+  // 아이템 모드 변경
+  const changeItemMode = async (mode: ItemMode) => {
+    if (mode === itemMode) return;
+
+    const modeLabel = mode === 'sprite' ? '스프라이트 시트' : '개별 이미지';
+    if (!confirm(`아이템 모드를 '${modeLabel}'로 변경하시겠습니까?\n\n기존 설정은 유지되며, 언제든 다시 변경할 수 있습니다.`)) return;
+
+    setIsChangingMode(true);
+
+    try {
+      await supabase
+        .from('templates')
+        .update({ item_mode: mode, updated_at: new Date().toISOString() })
+        .eq('id', templateId);
+
+      setItemMode(mode);
+      await fetchData();
+    } catch (error) {
+      console.error('모드 변경 실패:', error);
+      alert('모드 변경에 실패했습니다.');
+    } finally {
+      setIsChangingMode(false);
+    }
+  };
+
+  // 개별 아이템 이미지 업로드
+  const uploadItemImage = async (slotId: string, slotNumber: number, file: File) => {
+    setIsUploadingItemImage(prev => ({ ...prev, [slotId]: true }));
+
+    try {
+      // 파일 확장자 추출
+      const ext = file.name.split('.').pop();
+      const fileName = `${templateId}/items/slot_${slotNumber}_${Date.now()}.${ext}`;
+
+      // 기존 이미지 삭제
+      const slot = slots.find(s => s.id === slotId);
+      if (slot?.item_image_url) {
+        const oldPath = slot.item_image_url.split('/templates/')[1];
+        if (oldPath) {
+          await supabase.storage.from('templates').remove([oldPath]);
+        }
+      }
+
+      // 새 이미지 업로드
+      const { data, error } = await supabase.storage
+        .from('templates')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (error) throw error;
+
+      // Public URL 가져오기
+      const { data: urlData } = supabase.storage
+        .from('templates')
+        .getPublicUrl(fileName);
+
+      // 슬롯 업데이트
+      await supabase
+        .from('template_slots')
+        .update({ item_image_url: urlData.publicUrl })
+        .eq('id', slotId);
+
+      await fetchData();
+    } catch (error) {
+      console.error('이미지 업로드 실패:', error);
+      alert('이미지 업로드에 실패했습니다.');
+    } finally {
+      setIsUploadingItemImage(prev => ({ ...prev, [slotId]: false }));
+    }
+  };
+
+  // 개별 아이템 이미지 삭제
+  const deleteItemImage = async (slotId: string) => {
+    if (!confirm('이 슬롯의 아이템 이미지를 삭제하시겠습니까?')) return;
+
+    setIsUploadingItemImage(prev => ({ ...prev, [slotId]: true }));
+
+    try {
+      const slot = slots.find(s => s.id === slotId);
+      if (slot?.item_image_url) {
+        const oldPath = slot.item_image_url.split('/templates/')[1];
+        if (oldPath) {
+          await supabase.storage.from('templates').remove([oldPath]);
+        }
+      }
+
+      await supabase
+        .from('template_slots')
+        .update({ item_image_url: null })
+        .eq('id', slotId);
+
+      await fetchData();
+    } catch (error) {
+      console.error('이미지 삭제 실패:', error);
+      alert('이미지 삭제에 실패했습니다.');
+    } finally {
+      setIsUploadingItemImage(prev => ({ ...prev, [slotId]: false }));
+    }
+  };
+
   if (authLoading || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -731,7 +847,159 @@ export default function TemplateDetailPage() {
           </div>
         </motion.section>
 
-        {/* 스프라이트 전역 설정 */}
+        {/* 아이템 모드 선택 */}
+        <motion.section
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mb-6 rounded-xl bg-gray-800/50 p-4"
+        >
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
+            <Grid3X3 className="h-5 w-5" /> 아이템 모드
+          </h2>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* 스프라이트 모드 */}
+            <button
+              onClick={() => changeItemMode('sprite')}
+              disabled={isChangingMode}
+              className={`relative rounded-lg border-2 p-4 text-left transition-all ${
+                itemMode === 'sprite'
+                  ? 'border-purple-500 bg-purple-500/10'
+                  : 'border-gray-600 bg-gray-900/50 hover:border-gray-500'
+              }`}
+            >
+              {itemMode === 'sprite' && (
+                <div className="absolute top-2 right-2 rounded-full bg-purple-500 p-1">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              )}
+              <div className="mb-2 flex items-center gap-2">
+                <Grid3X3 className={`h-5 w-5 ${itemMode === 'sprite' ? 'text-purple-400' : 'text-gray-400'}`} />
+                <span className={`font-bold ${itemMode === 'sprite' ? 'text-white' : 'text-gray-300'}`}>
+                  스프라이트 시트
+                </span>
+              </div>
+              <p className="text-sm text-gray-400">
+                하나의 이미지에서 그리드 기반으로 크롭하여 아이템 추출 (현재 크리스마스 테마)
+              </p>
+            </button>
+
+            {/* 개별 이미지 모드 */}
+            <button
+              onClick={() => changeItemMode('individual')}
+              disabled={isChangingMode}
+              className={`relative rounded-lg border-2 p-4 text-left transition-all ${
+                itemMode === 'individual'
+                  ? 'border-purple-500 bg-purple-500/10'
+                  : 'border-gray-600 bg-gray-900/50 hover:border-gray-500'
+              }`}
+            >
+              {itemMode === 'individual' && (
+                <div className="absolute top-2 right-2 rounded-full bg-purple-500 p-1">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              )}
+              <div className="mb-2 flex items-center gap-2">
+                <ImagePlus className={`h-5 w-5 ${itemMode === 'individual' ? 'text-purple-400' : 'text-gray-400'}`} />
+                <span className={`font-bold ${itemMode === 'individual' ? 'text-white' : 'text-gray-300'}`}>
+                  개별 이미지
+                </span>
+              </div>
+              <p className="text-sm text-gray-400">
+                각 슬롯마다 별도의 이미지를 업로드하여 사용
+              </p>
+            </button>
+          </div>
+
+          {isChangingMode && (
+            <div className="mt-4 flex items-center gap-2 text-sm text-gray-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              모드 변경 중...
+            </div>
+          )}
+        </motion.section>
+
+        {/* 개별 이미지 모드: 슬롯별 이미지 업로드 */}
+        {itemMode === 'individual' && (
+          <motion.section
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-6 rounded-xl bg-gray-800/50 p-4"
+          >
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
+              <ImagePlus className="h-5 w-5" /> 슬롯별 아이템 이미지 ({slots.filter(s => s.item_image_url).length}/{slots.length}개 업로드됨)
+            </h2>
+
+            <div className="grid grid-cols-5 gap-3 sm:grid-cols-10">
+              {sortedSlots.map((slot) => (
+                <div key={slot.id} className="relative">
+                  <div
+                    className={`aspect-square rounded-lg border-2 border-dashed overflow-hidden ${
+                      slot.item_image_url ? 'border-green-500/50' : 'border-gray-600'
+                    }`}
+                  >
+                    {slot.item_image_url ? (
+                      <div className="relative h-full w-full group">
+                        <img
+                          src={slot.item_image_url}
+                          alt={`슬롯 ${slot.slot_number}`}
+                          className="h-full w-full object-contain"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center gap-1 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <label className="cursor-pointer rounded bg-blue-600 p-1 text-white hover:bg-blue-500">
+                            <Upload className="h-3 w-3" />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) uploadItemImage(slot.id, slot.slot_number, file);
+                                e.target.value = '';
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                          <button
+                            onClick={() => deleteItemImage(slot.id)}
+                            className="rounded bg-red-600 p-1 text-white hover:bg-red-500"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center text-gray-400 hover:text-white">
+                        {isUploadingItemImage[slot.id] ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4" />
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadItemImage(slot.id, slot.slot_number, file);
+                            e.target.value = '';
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <div className="mt-1 text-center text-xs text-gray-400">{slot.slot_number}</div>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-4 text-xs text-gray-500">
+              각 슬롯에 사용할 아이템 이미지를 업로드하세요. 개별 이미지 모드에서는 스프라이트 시트 설정이 무시됩니다.
+            </p>
+          </motion.section>
+        )}
+
+        {/* 스프라이트 전역 설정 (스프라이트 모드일 때만 표시) */}
+        {itemMode === 'sprite' && (
         <motion.section
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -894,6 +1162,7 @@ export default function TemplateDetailPage() {
             )}
           </AnimatePresence>
         </motion.section>
+        )}
 
         {/* 위치 에디터 */}
         <motion.section
@@ -1001,6 +1270,7 @@ export default function TemplateDetailPage() {
                         spriteConfig={spriteConfig}
                         individualOffset={{ x: slot.offset_x, y: slot.offset_y }}
                         spriteImageUrl={template.sprite_image || undefined}
+                        itemImageUrl={itemMode === 'individual' ? slot.item_image_url : undefined}
                       />
                       <span
                         className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded bg-gray-600 px-1 text-white"
@@ -1055,13 +1325,17 @@ export default function TemplateDetailPage() {
           transition={{ delay: 0.1 }}
           className="mt-6 rounded-xl bg-gray-800/50 p-4"
         >
-          <h2 className="mb-4 text-lg font-bold text-white">슬롯 목록 ({slots.length}개) - 클릭하여 스프라이트 조정</h2>
+          <h2 className="mb-4 text-lg font-bold text-white">
+            슬롯 목록 ({slots.length}개) - {itemMode === 'sprite' ? '클릭하여 스프라이트 조정' : '아이템 미리보기'}
+          </h2>
           <div className="grid grid-cols-10 gap-2">
             {sortedSlots.map((slot) => (
               <button
                 key={slot.id}
-                onClick={() => handleSlotClick(slot)}
-                className={`rounded-lg p-2 text-center transition-all hover:bg-purple-600 ${
+                onClick={() => itemMode === 'sprite' && handleSlotClick(slot)}
+                className={`rounded-lg p-2 text-center transition-all ${
+                  itemMode === 'sprite' ? 'hover:bg-purple-600' : ''
+                } ${
                   selectedSlot?.id === slot.id
                     ? 'bg-purple-500 text-white'
                     : 'bg-gray-700 text-gray-300 hover:text-white'
@@ -1073,6 +1347,7 @@ export default function TemplateDetailPage() {
                   spriteConfig={spriteConfig}
                   individualOffset={{ x: slot.offset_x, y: slot.offset_y }}
                   spriteImageUrl={template.sprite_image || undefined}
+                  itemImageUrl={itemMode === 'individual' ? slot.item_image_url : undefined}
                 />
                 <div className="mt-1 text-xs">{slot.slot_number}</div>
               </button>
@@ -1108,50 +1383,85 @@ export default function TemplateDetailPage() {
                 </button>
               </div>
 
-              {/* 탭 */}
-              <div className="mb-4 flex rounded-lg bg-gray-700 p-1">
-                <button
-                  onClick={() => setModalTab('sprite')}
-                  className={`flex-1 rounded-md px-3 py-2 text-sm transition-all ${
-                    modalTab === 'sprite'
-                      ? 'bg-purple-500 font-bold text-white'
-                      : 'text-gray-300 hover:text-white'
-                  }`}
-                >
-                  스프라이트 오프셋
-                </button>
-                <button
-                  onClick={() => setModalTab('position')}
-                  className={`flex-1 rounded-md px-3 py-2 text-sm transition-all ${
-                    modalTab === 'position'
-                      ? 'bg-purple-500 font-bold text-white'
-                      : 'text-gray-300 hover:text-white'
-                  }`}
-                >
-                  배치 위치
-                </button>
-              </div>
+              {/* 탭 (스프라이트 모드에서만 표시) */}
+              {itemMode === 'sprite' && (
+                <div className="mb-4 flex rounded-lg bg-gray-700 p-1">
+                  <button
+                    onClick={() => setModalTab('sprite')}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm transition-all ${
+                      modalTab === 'sprite'
+                        ? 'bg-purple-500 font-bold text-white'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    스프라이트 오프셋
+                  </button>
+                  <button
+                    onClick={() => setModalTab('position')}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm transition-all ${
+                      modalTab === 'position'
+                        ? 'bg-purple-500 font-bold text-white'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    배치 위치
+                  </button>
+                </div>
+              )}
 
-              {modalTab === 'sprite' ? (
-                <SpriteAdjuster
-                  index={selectedSlot.slot_number - 1}
-                  currentOffsetX={selectedSlot.offset_x}
-                  currentOffsetY={selectedSlot.offset_y}
-                  onSave={saveSpriteOffset}
-                  onClose={() => setShowSlotModal(false)}
-                  spriteImageUrl={template.sprite_image || undefined}
-                  spriteConfig={spriteConfig}
-                />
+              {itemMode === 'sprite' ? (
+                modalTab === 'sprite' ? (
+                  <SpriteAdjuster
+                    index={selectedSlot.slot_number - 1}
+                    currentOffsetX={selectedSlot.offset_x}
+                    currentOffsetY={selectedSlot.offset_y}
+                    onSave={saveSpriteOffset}
+                    onClose={() => setShowSlotModal(false)}
+                    spriteImageUrl={template.sprite_image || undefined}
+                    spriteConfig={spriteConfig}
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex justify-center">
+                      <Ornament
+                        index={selectedSlot.slot_number - 1}
+                        size={80}
+                        spriteConfig={spriteConfig}
+                        individualOffset={{ x: selectedSlot.offset_x, y: selectedSlot.offset_y }}
+                        spriteImageUrl={template.sprite_image || undefined}
+                      />
+                    </div>
+                    <div className="rounded-lg bg-gray-700 p-3">
+                      <div className="text-sm text-gray-400">
+                        현재 위치: ({tempPositions[selectedSlot.id]?.left.toFixed(1)}%,{' '}
+                        {tempPositions[selectedSlot.id]?.top.toFixed(1)}%)
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500">
+                        트리 에디터에서 드래그하여 위치를 조정하세요.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowSlotModal(false)}
+                      className="w-full rounded-lg bg-gray-700 py-2 text-white hover:bg-gray-600"
+                    >
+                      닫기
+                    </button>
+                  </div>
+                )
               ) : (
                 <div className="space-y-4">
                   <div className="flex justify-center">
-                    <Ornament
-                      index={selectedSlot.slot_number - 1}
-                      size={80}
-                      spriteConfig={spriteConfig}
-                      individualOffset={{ x: selectedSlot.offset_x, y: selectedSlot.offset_y }}
-                      spriteImageUrl={template.sprite_image || undefined}
-                    />
+                    {selectedSlot.item_image_url ? (
+                      <img
+                        src={selectedSlot.item_image_url}
+                        alt={`슬롯 ${selectedSlot.slot_number}`}
+                        className="h-20 w-20 object-contain"
+                      />
+                    ) : (
+                      <div className="flex h-20 w-20 items-center justify-center rounded-lg border-2 border-dashed border-gray-600 text-gray-500">
+                        이미지 없음
+                      </div>
+                    )}
                   </div>
                   <div className="rounded-lg bg-gray-700 p-3">
                     <div className="text-sm text-gray-400">
@@ -1159,7 +1469,7 @@ export default function TemplateDetailPage() {
                       {tempPositions[selectedSlot.id]?.top.toFixed(1)}%)
                     </div>
                     <p className="mt-2 text-xs text-gray-500">
-                      트리 에디터에서 드래그하여 위치를 조정하세요.
+                      개별 이미지 모드입니다. 아이템 이미지는 &apos;슬롯별 아이템 이미지&apos; 섹션에서 업로드하세요.
                     </p>
                   </div>
                   <button

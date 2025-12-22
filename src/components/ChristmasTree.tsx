@@ -166,6 +166,7 @@ export function ChristmasTree() {
                     individualOffset={{ x: prize.offset_x, y: prize.offset_y }}
                     spriteConfig={spriteConfig}
                     spriteImageUrl={spriteImageUrl}
+                    itemImageUrl={prize.item_image_url}
                   />
 
                   {/* 선택 중 로딩 */}

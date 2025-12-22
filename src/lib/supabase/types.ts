@@ -72,6 +72,7 @@ export interface Prize {
   display_position: number; // 트리에서의 표시 순서 (1~100)
   position_top: number | null; // 화면 위치 top (%)
   position_left: number | null; // 화면 위치 left (%)
+  item_image_url: string | null; // 개별 이미지 모드일 때 사용하는 아이템 이미지 URL
 }
 
 export interface Draw {
@@ -110,6 +111,9 @@ export interface SpriteConfig {
   rows: number;
 }
 
+// 아이템 모드 타입
+export type ItemMode = 'sprite' | 'individual';
+
 // 템플릿 타입
 export interface Template {
   id: string;
@@ -120,6 +124,7 @@ export interface Template {
   sprite_config: SpriteConfig;
   total_slots: number;
   is_default: boolean;
+  item_mode: ItemMode; // 'sprite' = 스프라이트 시트, 'individual' = 개별 이미지
   created_at: string;
   updated_at: string;
 }
@@ -135,6 +140,7 @@ export interface TemplateSlot {
   position_left: number | null;
   default_prize_name: string;
   default_prize_grade: string | null;
+  item_image_url: string | null; // 개별 이미지 모드일 때 사용하는 아이템 이미지 URL
   created_at: string;
 }
 
