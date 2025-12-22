@@ -19,6 +19,44 @@ export interface Game {
   bgm_url: string | null;
   bgm_playing: boolean;
   bgm_volume: number; // 0.0 ~ 1.0
+  // 기업 브랜딩
+  company_logo_url: string | null;
+  brand_color_secondary: string;
+  // 마퀴 띠배너
+  marquee_enabled: boolean;
+  marquee_text: string | null;
+  // 실시간 당첨 토스트
+  toast_enabled: boolean;
+  // 플로팅 뱃지
+  badge_enabled: boolean;
+  badge_text: string | null;
+  badge_color: string;
+  // 카운트다운 타이머
+  countdown_enabled: boolean;
+  event_end_at: string | null;
+  // 팝업 배너
+  popup_enabled: boolean;
+  popup_image_url: string | null;
+  popup_title: string | null;
+  popup_description: string | null;
+  // 하단 정보
+  footer_enabled: boolean;
+  footer_text: string | null;
+  contact_info: string | null;
+  privacy_url: string | null;
+  // 공유 버튼
+  share_enabled: boolean;
+  // 스폰서 로고
+  sponsors: Sponsor[];
+  // 당첨/꽝 메시지
+  win_message: string | null;
+  lose_message: string | null;
+}
+
+export interface Sponsor {
+  name: string;
+  logo_url: string;
+  link_url?: string;
 }
 
 export interface Prize {

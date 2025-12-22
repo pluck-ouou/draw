@@ -39,7 +39,18 @@ import {
   Upload,
   Trash2,
   LogOut,
+  MessageSquare,
+  Bell,
+  Clock,
+  Image,
+  Share2,
+  FileText,
+  Building2,
+  Plus,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
+import type { Sponsor } from '@/lib/supabase/types';
 
 const PRIZE_PRESETS = [
   { grade: '1등', name: '상품권 10만원', color: 'text-yellow-400' },
@@ -78,6 +89,12 @@ export default function AdminGamePage() {
 
   // 경품 설정 펼치기
   const [showPrizeSettings, setShowPrizeSettings] = useState(false);
+
+  // 컨텐츠 설정 펼치기
+  const [showContentSettings, setShowContentSettings] = useState(false);
+
+  // 스폰서 입력
+  const [newSponsor, setNewSponsor] = useState<Sponsor>({ name: '', logo_url: '', link_url: '' });
 
   const supabase = createClient();
 
@@ -601,6 +618,532 @@ export default function AdminGamePage() {
               * 재생/정지 버튼을 누르면 모든 클라이언트에 실시간으로 반영됩니다.
             </p>
           </div>
+        </section>
+
+        {/* 컨텐츠 설정 */}
+        <section className="mb-6 rounded-xl bg-gray-800/50 p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-white">
+              <MessageSquare className="h-5 w-5" /> 컨텐츠 설정
+            </h2>
+            <button
+              onClick={() => setShowContentSettings(!showContentSettings)}
+              className="flex items-center gap-1 rounded-lg bg-gray-700 px-3 py-1.5 text-sm text-white hover:bg-gray-600"
+            >
+              {showContentSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {showContentSettings ? '접기' : '펼치기'}
+            </button>
+          </div>
+
+          <AnimatePresence>
+            {showContentSettings && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden space-y-6"
+              >
+                {/* 기업 로고 */}
+                <div className="rounded-lg bg-gray-700/50 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-blue-400" />
+                    <h3 className="font-bold text-white">기업 로고</h3>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {game.company_logo_url && (
+                      <img
+                        src={game.company_logo_url}
+                        alt="Company Logo"
+                        className="h-12 max-w-[150px] object-contain rounded bg-white/10 p-2"
+                      />
+                    )}
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-500">
+                      <Upload className="h-4 w-4" />
+                      로고 업로드
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setIsUpdating(true);
+                          try {
+                            const fileName = `logo_${gameId}_${Date.now()}.${file.name.split('.').pop()}`;
+                            await supabase.storage.from('game-assets').upload(fileName, file, { upsert: true });
+                            const { data: { publicUrl } } = supabase.storage.from('game-assets').getPublicUrl(fileName);
+                            await supabase.from('games').update({ company_logo_url: publicUrl }).eq('id', gameId);
+                            setGame({ ...game, company_logo_url: publicUrl });
+                          } catch (error) {
+                            alert('업로드에 실패했습니다.');
+                          }
+                          setIsUpdating(false);
+                        }}
+                      />
+                    </label>
+                    {game.company_logo_url && (
+                      <button
+                        onClick={async () => {
+                          await supabase.from('games').update({ company_logo_url: null }).eq('id', gameId);
+                          setGame({ ...game, company_logo_url: null });
+                        }}
+                        className="rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-500"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 마퀴 띠배너 */}
+                <div className="rounded-lg bg-gray-700/50 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-5 w-5 text-yellow-400" />
+                      <h3 className="font-bold text-white">마퀴 띠배너</h3>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const value = !game.marquee_enabled;
+                        setGame({ ...game, marquee_enabled: value });
+                        await supabase.from('games').update({ marquee_enabled: value }).eq('id', gameId);
+                      }}
+                      className={`relative h-6 w-11 rounded-full transition-colors ${game.marquee_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                    >
+                      <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${game.marquee_enabled ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={game.marquee_text || ''}
+                    onChange={async (e) => {
+                      const value = e.target.value || null;
+                      setGame({ ...game, marquee_text: value });
+                      await supabase.from('games').update({ marquee_text: value }).eq('id', gameId);
+                    }}
+                    placeholder="예: 🎄 2025 송년회 럭키드로우 이벤트! 🎁"
+                    className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                  />
+                </div>
+
+                {/* 실시간 당첨 토스트 */}
+                <div className="rounded-lg bg-gray-700/50 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bell className="h-5 w-5 text-green-400" />
+                      <div>
+                        <h3 className="font-bold text-white">실시간 당첨 토스트</h3>
+                        <p className="text-xs text-gray-500">당첨자 발생 시 화면에 알림 표시</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const value = !game.toast_enabled;
+                        setGame({ ...game, toast_enabled: value });
+                        await supabase.from('games').update({ toast_enabled: value }).eq('id', gameId);
+                      }}
+                      className={`relative h-6 w-11 rounded-full transition-colors ${game.toast_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                    >
+                      <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${game.toast_enabled ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 플로팅 뱃지 */}
+                <div className="rounded-lg bg-gray-700/50 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Gift className="h-5 w-5 text-red-400" />
+                      <h3 className="font-bold text-white">플로팅 뱃지</h3>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const value = !game.badge_enabled;
+                        setGame({ ...game, badge_enabled: value });
+                        await supabase.from('games').update({ badge_enabled: value }).eq('id', gameId);
+                      }}
+                      className={`relative h-6 w-11 rounded-full transition-colors ${game.badge_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                    >
+                      <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${game.badge_enabled ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400">뱃지 텍스트</label>
+                      <input
+                        type="text"
+                        value={game.badge_text || ''}
+                        onChange={async (e) => {
+                          const value = e.target.value || null;
+                          setGame({ ...game, badge_text: value });
+                          await supabase.from('games').update({ badge_text: value }).eq('id', gameId);
+                        }}
+                        placeholder="예: D-3, HOT, EVENT"
+                        className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400">뱃지 색상</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={game.badge_color || '#ef4444'}
+                          onChange={async (e) => {
+                            const value = e.target.value;
+                            setGame({ ...game, badge_color: value });
+                            await supabase.from('games').update({ badge_color: value }).eq('id', gameId);
+                          }}
+                          className="h-10 w-16 cursor-pointer rounded bg-gray-700"
+                        />
+                        <span className="text-sm text-gray-400">{game.badge_color || '#ef4444'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 카운트다운 타이머 */}
+                <div className="rounded-lg bg-gray-700/50 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-5 w-5 text-purple-400" />
+                      <h3 className="font-bold text-white">카운트다운 타이머</h3>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const value = !game.countdown_enabled;
+                        setGame({ ...game, countdown_enabled: value });
+                        await supabase.from('games').update({ countdown_enabled: value }).eq('id', gameId);
+                      }}
+                      className={`relative h-6 w-11 rounded-full transition-colors ${game.countdown_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                    >
+                      <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${game.countdown_enabled ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-400">이벤트 종료 일시</label>
+                    <input
+                      type="datetime-local"
+                      value={game.event_end_at ? new Date(game.event_end_at).toISOString().slice(0, 16) : ''}
+                      onChange={async (e) => {
+                        const value = e.target.value ? new Date(e.target.value).toISOString() : null;
+                        setGame({ ...game, event_end_at: value });
+                        await supabase.from('games').update({ event_end_at: value }).eq('id', gameId);
+                      }}
+                      className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* 팝업 배너 */}
+                <div className="rounded-lg bg-gray-700/50 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Image className="h-5 w-5 text-pink-400" />
+                      <h3 className="font-bold text-white">팝업 배너</h3>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const value = !game.popup_enabled;
+                        setGame({ ...game, popup_enabled: value });
+                        await supabase.from('games').update({ popup_enabled: value }).eq('id', gameId);
+                      }}
+                      className={`relative h-6 w-11 rounded-full transition-colors ${game.popup_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                    >
+                      <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${game.popup_enabled ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      {game.popup_image_url && (
+                        <img
+                          src={game.popup_image_url}
+                          alt="Popup"
+                          className="h-16 w-28 rounded object-cover"
+                        />
+                      )}
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-pink-600 px-4 py-2 text-sm text-white hover:bg-pink-500">
+                        <Upload className="h-4 w-4" />
+                        이미지 업로드
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setIsUpdating(true);
+                            try {
+                              const fileName = `popup_${gameId}_${Date.now()}.${file.name.split('.').pop()}`;
+                              await supabase.storage.from('game-assets').upload(fileName, file, { upsert: true });
+                              const { data: { publicUrl } } = supabase.storage.from('game-assets').getPublicUrl(fileName);
+                              await supabase.from('games').update({ popup_image_url: publicUrl }).eq('id', gameId);
+                              setGame({ ...game, popup_image_url: publicUrl });
+                            } catch (error) {
+                              alert('업로드에 실패했습니다.');
+                            }
+                            setIsUpdating(false);
+                          }}
+                        />
+                      </label>
+                      {game.popup_image_url && (
+                        <button
+                          onClick={async () => {
+                            await supabase.from('games').update({ popup_image_url: null }).eq('id', gameId);
+                            setGame({ ...game, popup_image_url: null });
+                          }}
+                          className="rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-500"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400">팝업 제목</label>
+                      <input
+                        type="text"
+                        value={game.popup_title || ''}
+                        onChange={async (e) => {
+                          const value = e.target.value || null;
+                          setGame({ ...game, popup_title: value });
+                          await supabase.from('games').update({ popup_title: value }).eq('id', gameId);
+                        }}
+                        placeholder="예: 🎉 이벤트 안내"
+                        className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400">팝업 설명</label>
+                      <textarea
+                        value={game.popup_description || ''}
+                        onChange={async (e) => {
+                          const value = e.target.value || null;
+                          setGame({ ...game, popup_description: value });
+                          await supabase.from('games').update({ popup_description: value }).eq('id', gameId);
+                        }}
+                        placeholder="이벤트에 대한 안내 문구를 입력하세요..."
+                        rows={3}
+                        className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 공유 버튼 */}
+                <div className="rounded-lg bg-gray-700/50 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Share2 className="h-5 w-5 text-cyan-400" />
+                      <div>
+                        <h3 className="font-bold text-white">공유 버튼</h3>
+                        <p className="text-xs text-gray-500">카카오톡, 링크 복사 등 공유 기능</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const value = !game.share_enabled;
+                        setGame({ ...game, share_enabled: value });
+                        await supabase.from('games').update({ share_enabled: value }).eq('id', gameId);
+                      }}
+                      className={`relative h-6 w-11 rounded-full transition-colors ${game.share_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                    >
+                      <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${game.share_enabled ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 하단 정보 바 */}
+                <div className="rounded-lg bg-gray-700/50 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-orange-400" />
+                      <h3 className="font-bold text-white">하단 정보 바</h3>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const value = !game.footer_enabled;
+                        setGame({ ...game, footer_enabled: value });
+                        await supabase.from('games').update({ footer_enabled: value }).eq('id', gameId);
+                      }}
+                      className={`relative h-6 w-11 rounded-full transition-colors ${game.footer_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                    >
+                      <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${game.footer_enabled ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400">기업/이벤트 정보</label>
+                      <input
+                        type="text"
+                        value={game.footer_text || ''}
+                        onChange={async (e) => {
+                          const value = e.target.value || null;
+                          setGame({ ...game, footer_text: value });
+                          await supabase.from('games').update({ footer_text: value }).eq('id', gameId);
+                        }}
+                        placeholder="예: (주)OOO 회사 송년회"
+                        className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400">문의처</label>
+                      <input
+                        type="text"
+                        value={game.contact_info || ''}
+                        onChange={async (e) => {
+                          const value = e.target.value || null;
+                          setGame({ ...game, contact_info: value });
+                          await supabase.from('games').update({ contact_info: value }).eq('id', gameId);
+                        }}
+                        placeholder="예: 02-1234-5678"
+                        className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="mb-1 block text-xs text-gray-400">개인정보 처리방침 URL</label>
+                      <input
+                        type="url"
+                        value={game.privacy_url || ''}
+                        onChange={async (e) => {
+                          const value = e.target.value || null;
+                          setGame({ ...game, privacy_url: value });
+                          await supabase.from('games').update({ privacy_url: value }).eq('id', gameId);
+                        }}
+                        placeholder="https://example.com/privacy"
+                        className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 스폰서 로고 */}
+                <div className="rounded-lg bg-gray-700/50 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-indigo-400" />
+                    <h3 className="font-bold text-white">스폰서 / 협찬사</h3>
+                  </div>
+
+                  {/* 기존 스폰서 목록 */}
+                  {game.sponsors && game.sponsors.length > 0 && (
+                    <div className="mb-4 space-y-2">
+                      {game.sponsors.map((sponsor, index) => (
+                        <div key={index} className="flex items-center gap-3 rounded-lg bg-gray-800 p-2">
+                          {sponsor.logo_url && (
+                            <img src={sponsor.logo_url} alt={sponsor.name} className="h-8 w-20 object-contain" />
+                          )}
+                          <span className="flex-1 text-sm text-white">{sponsor.name}</span>
+                          {sponsor.link_url && (
+                            <a href={sponsor.link_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">
+                              링크
+                            </a>
+                          )}
+                          <button
+                            onClick={async () => {
+                              const newSponsors = game.sponsors.filter((_, i) => i !== index);
+                              setGame({ ...game, sponsors: newSponsors });
+                              await supabase.from('games').update({ sponsors: newSponsors }).eq('id', gameId);
+                            }}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 새 스폰서 추가 */}
+                  <div className="space-y-2 rounded-lg bg-gray-800 p-3">
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <input
+                        type="text"
+                        value={newSponsor.name}
+                        onChange={(e) => setNewSponsor({ ...newSponsor, name: e.target.value })}
+                        placeholder="스폰서 이름"
+                        className="rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                      />
+                      <input
+                        type="url"
+                        value={newSponsor.logo_url}
+                        onChange={(e) => setNewSponsor({ ...newSponsor, logo_url: e.target.value })}
+                        placeholder="로고 URL"
+                        className="rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                      />
+                      <input
+                        type="url"
+                        value={newSponsor.link_url || ''}
+                        onChange={(e) => setNewSponsor({ ...newSponsor, link_url: e.target.value })}
+                        placeholder="링크 URL (선택)"
+                        className="rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                      />
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!newSponsor.name) return;
+                        const newSponsors = [...(game.sponsors || []), newSponsor];
+                        setGame({ ...game, sponsors: newSponsors });
+                        await supabase.from('games').update({ sponsors: newSponsors }).eq('id', gameId);
+                        setNewSponsor({ name: '', logo_url: '', link_url: '' });
+                      }}
+                      disabled={!newSponsor.name}
+                      className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-500 disabled:opacity-50"
+                    >
+                      <Plus className="h-4 w-4" /> 스폰서 추가
+                    </button>
+                  </div>
+                </div>
+
+                {/* 당첨/꽝 메시지 */}
+                <div className="rounded-lg bg-gray-700/50 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-gray-400" />
+                    <h3 className="font-bold text-white">결과 메시지 커스텀</h3>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400">당첨 메시지</label>
+                      <input
+                        type="text"
+                        value={game.win_message || ''}
+                        onChange={async (e) => {
+                          const value = e.target.value || null;
+                          setGame({ ...game, win_message: value });
+                          await supabase.from('games').update({ win_message: value }).eq('id', gameId);
+                        }}
+                        placeholder="기본: 🎉 축하합니다!"
+                        className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400">꽝 메시지</label>
+                      <input
+                        type="text"
+                        value={game.lose_message || ''}
+                        onChange={async (e) => {
+                          const value = e.target.value || null;
+                          setGame({ ...game, lose_message: value });
+                          await supabase.from('games').update({ lose_message: value }).eq('id', gameId);
+                        }}
+                        placeholder="기본: 다음 기회에..."
+                        className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {!showContentSettings && (
+            <div className="flex flex-wrap gap-2 text-sm">
+              <span className={`rounded-full px-2 py-1 ${game.marquee_enabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'}`}>마퀴</span>
+              <span className={`rounded-full px-2 py-1 ${game.toast_enabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'}`}>토스트</span>
+              <span className={`rounded-full px-2 py-1 ${game.badge_enabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'}`}>뱃지</span>
+              <span className={`rounded-full px-2 py-1 ${game.countdown_enabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'}`}>카운트다운</span>
+              <span className={`rounded-full px-2 py-1 ${game.popup_enabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'}`}>팝업</span>
+              <span className={`rounded-full px-2 py-1 ${game.share_enabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'}`}>공유</span>
+              <span className={`rounded-full px-2 py-1 ${game.footer_enabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'}`}>푸터</span>
+            </div>
+          )}
         </section>
 
         {/* Stats */}

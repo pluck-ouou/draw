@@ -7,9 +7,14 @@ import { NameInput } from '@/components/NameInput';
 import { Snowfall } from '@/components/Snowfall';
 import { createClient } from '@/lib/supabase/client';
 import { getPlayerName } from '@/lib/utils';
-import { Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Loader2, Sparkles, AlertCircle, Gift, Trophy, Clock } from 'lucide-react';
 import type { Game, Prize, Draw } from '@/lib/supabase/types';
 import Link from 'next/link';
+// UI 컴포넌트
+import { MarqueeBanner } from '@/components/ui/MarqueeBanner';
+import { FloatingBadge } from '@/components/ui/FloatingBadge';
+import { CountdownTimer } from '@/components/ui/CountdownTimer';
+import { EventPopup } from '@/components/ui/EventPopup';
 
 export default function InviteCodePage() {
   const router = useRouter();
@@ -68,11 +73,17 @@ export default function InviteCodePage() {
     fetchData();
   }, [router, inviteCode]);
 
+  // 게임 설정값
+  const themeColor = game?.theme_color || '#facc15';
+  const showSnow = game?.show_snow ?? true;
+  const clientTitle = game?.client_title || game?.name || 'Lucky Draw';
+  const clientSubtitle = game?.client_subtitle;
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Snowfall count={30} />
-        <Loader2 className="h-12 w-12 animate-spin text-yellow-400" />
+        {showSnow && <Snowfall count={30} />}
+        <Loader2 className="h-12 w-12 animate-spin" style={{ color: themeColor }} />
       </div>
     );
   }
@@ -96,55 +107,217 @@ export default function InviteCodePage() {
 
   const remainingSlots = prizes.filter((p) => !p.is_drawn).length;
   const participantCount = draws.length;
+  const prizeWinners = draws.filter((d) => {
+    const prize = prizes.find((p) => p.id === d.prize_id);
+    return prize?.prize_grade;
+  }).length;
+
+  // 경품 등급별 개수
+  const prizesByGrade = prizes.reduce((acc, prize) => {
+    if (prize.prize_grade && !prize.is_drawn) {
+      acc[prize.prize_grade] = (acc[prize.prize_grade] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4">
-      <Snowfall count={40} />
+    <main className="min-h-screen">
+      {/* 눈 효과 */}
+      {showSnow && <Snowfall count={50} />}
 
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8 text-center"
-      >
-        <div className="mb-2 flex items-center justify-center gap-2">
-          <Sparkles className="h-8 w-8 text-yellow-400" />
-          <h1 className="text-4xl font-extrabold gradient-text sm:text-5xl">
-            Lucky Draw
+      {/* 마퀴 띠배너 */}
+      {game?.marquee_enabled && game?.marquee_text && (
+        <MarqueeBanner
+          text={game.marquee_text}
+          bgColor={themeColor}
+          textColor="#000000"
+        />
+      )}
+
+      {/* 플로팅 뱃지 */}
+      {game?.badge_enabled && game?.badge_text && (
+        <FloatingBadge
+          text={game.badge_text}
+          bgColor={game.badge_color || '#ef4444'}
+        />
+      )}
+
+      {/* 팝업 배너 */}
+      {game?.popup_enabled && (
+        <EventPopup
+          imageUrl={game.popup_image_url || undefined}
+          title={game.popup_title || undefined}
+          description={game.popup_description || undefined}
+          themeColor={themeColor}
+        />
+      )}
+
+      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+        {/* 기업 로고 & 브랜딩 헤더 */}
+        <motion.div
+          initial={{ opacity: 0, y: -30 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 text-center"
+        >
+          {game?.company_logo_url ? (
+            <img
+              src={game.company_logo_url}
+              alt="Logo"
+              className="mx-auto mb-4 h-16 w-auto max-w-[200px] object-contain"
+            />
+          ) : (
+            <motion.div
+              animate={{ rotate: [0, 5, -5, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="mb-4 flex justify-center"
+            >
+              <Gift className="h-16 w-16" style={{ color: themeColor }} />
+            </motion.div>
+          )}
+
+          <h1
+            className="text-4xl font-extrabold sm:text-5xl"
+            style={{
+              background: `linear-gradient(135deg, ${themeColor} 0%, #fff 50%, ${themeColor} 100%)`,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >
+            {clientTitle}
           </h1>
-          <Sparkles className="h-8 w-8 text-yellow-400" />
-        </div>
-        <p className="text-lg text-gray-400">{game?.name}</p>
-        <p className="mt-1 text-sm text-gray-500">초대 코드: {inviteCode}</p>
-      </motion.div>
+          {clientSubtitle && (
+            <p className="mt-2 text-lg text-gray-300">{clientSubtitle}</p>
+          )}
+        </motion.div>
 
-      {/* Game Status */}
-      {game?.status === 'waiting' && (
+        {/* 카운트다운 타이머 */}
+        {game?.countdown_enabled && game?.event_end_at && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 }}
+            className="mb-6"
+          >
+            <CountdownTimer endTime={game.event_end_at} themeColor={themeColor} />
+          </motion.div>
+        )}
+
+        {/* 경품 프리뷰 카드 */}
+        {Object.keys(prizesByGrade).length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="mb-6 w-full max-w-md"
+          >
+            <div className="rounded-2xl bg-gradient-to-br from-gray-800/80 to-gray-900/80 p-4 backdrop-blur">
+              <div className="mb-3 flex items-center gap-2">
+                <Trophy className="h-5 w-5" style={{ color: themeColor }} />
+                <span className="font-bold text-white">경품 현황</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {Object.entries(prizesByGrade)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([grade, count]) => (
+                    <div
+                      key={grade}
+                      className="rounded-xl bg-gray-700/50 p-3 text-center"
+                    >
+                      <div
+                        className="text-sm font-bold"
+                        style={{ color: themeColor }}
+                      >
+                        {grade}
+                      </div>
+                      <div className="text-xl font-bold text-white">{count}개</div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Game Status */}
+        {game?.status === 'waiting' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-6 flex items-center gap-2 rounded-xl px-4 py-2"
+            style={{ backgroundColor: `${themeColor}33` }}
+          >
+            <Clock className="h-5 w-5" style={{ color: themeColor }} />
+            <span style={{ color: themeColor }}>게임 시작 대기 중...</span>
+          </motion.div>
+        )}
+
+        {game?.status === 'ended' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-6 rounded-xl bg-red-500/20 px-4 py-2 text-red-300"
+          >
+            게임이 종료되었습니다
+          </motion.div>
+        )}
+
+        {/* Name Input Form */}
+        <NameInput
+          participantCount={participantCount}
+          remainingSlots={remainingSlots}
+          prizeWinners={prizeWinners}
+          inviteCode={inviteCode}
+          themeColor={themeColor}
+        />
+
+        {/* 안내 문구 */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="mb-6 rounded-xl bg-yellow-500/20 px-4 py-2 text-yellow-300"
+          transition={{ delay: 0.4 }}
+          className="mt-8 text-center"
         >
-          게임 시작 대기 중...
+          <p className="text-sm text-gray-500">
+            이름을 입력하고 행운의 오너먼트를 선택하세요!
+          </p>
+          <p className="mt-1 text-xs text-gray-600">
+            초대 코드: <span className="font-mono font-bold" style={{ color: themeColor }}>{inviteCode}</span>
+          </p>
         </motion.div>
-      )}
 
-      {game?.status === 'ended' && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mb-6 rounded-xl bg-red-500/20 px-4 py-2 text-red-300"
-        >
-          게임이 종료되었습니다
-        </motion.div>
-      )}
-
-      {/* Name Input Form */}
-      <NameInput
-        participantCount={participantCount}
-        remainingSlots={remainingSlots}
-        inviteCode={inviteCode}
-      />
+        {/* 스폰서 로고 */}
+        {game?.sponsors && game.sponsors.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mt-8 w-full max-w-md"
+          >
+            <p className="mb-3 text-center text-xs text-gray-500">협찬사</p>
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              {game.sponsors.map((sponsor, index) => (
+                <a
+                  key={index}
+                  href={sponsor.link_url || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="opacity-60 transition-opacity hover:opacity-100"
+                >
+                  {sponsor.logo_url ? (
+                    <img
+                      src={sponsor.logo_url}
+                      alt={sponsor.name}
+                      className="h-6 max-w-[80px] object-contain"
+                    />
+                  ) : (
+                    <span className="text-xs text-gray-400">{sponsor.name}</span>
+                  )}
+                </a>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </div>
     </main>
   );
 }
