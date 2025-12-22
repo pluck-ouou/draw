@@ -20,6 +20,7 @@ import {
   Check,
   Trash2,
   LogOut,
+  CalendarDays,
 } from 'lucide-react';
 
 type TabType = 'games' | 'templates';
@@ -303,7 +304,7 @@ export default function AdminPage() {
         </motion.header>
 
         {/* Tabs */}
-        <div className="mb-6 flex gap-2">
+        <div className="mb-6 flex flex-wrap gap-2">
           <button
             onClick={() => setActiveTab('games')}
             className={`flex items-center gap-2 rounded-lg px-4 py-2 font-medium transition-all ${
@@ -326,6 +327,15 @@ export default function AdminPage() {
             <Palette className="h-4 w-4" />
             템플릿 관리
           </button>
+          {isSuper && (
+            <Link
+              href="/admin/reservations"
+              className="flex items-center gap-2 rounded-lg px-4 py-2 font-medium bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-all"
+            >
+              <CalendarDays className="h-4 w-4" />
+              예약 관리
+            </Link>
+          )}
         </div>
 
         {/* Games Tab */}

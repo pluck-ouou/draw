@@ -148,3 +148,34 @@ export interface TemplateSlot {
 export interface TemplateWithSlots extends Template {
   slots: TemplateSlot[];
 }
+
+// 예약 상태
+export type ReservationStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
+
+// 예약 타입
+export interface Reservation {
+  id: string;
+  // 고객 정보
+  customer_name: string;
+  phone: string;
+  email: string;
+  company_name: string | null;
+  // 이벤트 정보
+  event_date: string;
+  event_time: string;
+  event_datetime: string;
+  expected_participants: number | null;
+  event_description: string | null;
+  // 동의 항목
+  terms_agreed: boolean;
+  privacy_agreed: boolean;
+  marketing_agreed: boolean;
+  // 예약 상태
+  status: ReservationStatus;
+  admin_note: string | null;
+  // 연결된 게임
+  game_id: string | null;
+  // 타임스탬프
+  created_at: string;
+  updated_at: string;
+}
