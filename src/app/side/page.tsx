@@ -5,7 +5,33 @@ import { SideTermsModal } from '@/components/ui/SideTermsModal';
 import { createClient } from '@/lib/supabase/client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Gift, Loader2, Phone, Sparkles, Star, TreePine, User } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+// 크리스마스 카운트다운 타겟 (12월 25일 자정)
+const CHRISTMAS_DATE = new Date('2024-12-25T00:00:00');
+
+interface TimeLeft {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+}
+
+function calculateTimeLeft(): TimeLeft {
+  const now = new Date();
+  const difference = CHRISTMAS_DATE.getTime() - now.getTime();
+
+  if (difference <= 0) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+  }
+
+  return {
+    days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+    hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+    minutes: Math.floor((difference / (1000 * 60)) % 60),
+    seconds: Math.floor((difference / 1000) % 60),
+  };
+}
 
 export default function SidePage() {
   const [name, setName] = useState('');
@@ -18,8 +44,22 @@ export default function SidePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [mounted, setMounted] = useState(false);
 
   const supabase = createClient();
+
+  // 카운트다운 업데이트
+  useEffect(() => {
+    setMounted(true);
+    setTimeLeft(calculateTimeLeft());
+
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   // 전화번호 포맷팅
   const formatPhone = (value: string) => {
@@ -178,6 +218,50 @@ export default function SidePage() {
       </motion.div>
 
       <div className="relative z-10 w-full max-w-md">
+        {/* 카운트다운 */}
+        <motion.div
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="mb-6"
+        >
+          <div className="text-center mb-2">
+            <span className="text-sm text-yellow-400 font-medium">크리스마스까지</span>
+          </div>
+          <div className="flex justify-center gap-2 sm:gap-3">
+            {[
+              { value: mounted ? timeLeft.days : 0, label: '일' },
+              { value: mounted ? timeLeft.hours : 0, label: '시간' },
+              { value: mounted ? timeLeft.minutes : 0, label: '분' },
+              { value: mounted ? timeLeft.seconds : 0, label: '초' },
+            ].map((item, index) => (
+              <motion.div
+                key={item.label}
+                initial={{ scale: 0, rotateY: 180 }}
+                animate={{ scale: 1, rotateY: 0 }}
+                transition={{ delay: index * 0.1, type: 'spring' }}
+                className="relative"
+              >
+                <div className="w-16 sm:w-20 h-20 sm:h-24 rounded-xl bg-gradient-to-b from-red-600 to-red-700 border-2 border-red-400/50 shadow-lg shadow-red-500/30 flex flex-col items-center justify-center">
+                  <motion.span
+                    key={item.value}
+                    initial={{ y: -10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="text-2xl sm:text-4xl font-black text-white"
+                  >
+                    {String(item.value).padStart(2, '0')}
+                  </motion.span>
+                  <span className="text-[10px] sm:text-xs text-red-200 font-medium mt-1">{item.label}</span>
+                </div>
+                {/* 눈 장식 효과 */}
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full opacity-60" />
+              </motion.div>
+            ))}
+          </div>
+          <div className="text-center mt-3">
+            <span className="text-xs text-gray-400">특가 이벤트 마감까지</span>
+          </div>
+        </motion.div>
+
         {/* 헤더 */}
         <motion.div
           initial={{ y: -30, opacity: 0 }}
