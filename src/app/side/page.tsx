@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { createClient } from '@/lib/supabase/client';
 import { Snowfall } from '@/components/Snowfall';
-import { TermsModal } from '@/components/ui/TermsModal';
-import { Loader2, Gift, Sparkles, Check, TreePine, Star, Phone, User } from 'lucide-react';
+import { SideTermsModal } from '@/components/ui/SideTermsModal';
+import { createClient } from '@/lib/supabase/client';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Check, Gift, Loader2, Phone, Sparkles, Star, TreePine, User } from 'lucide-react';
+import { useState } from 'react';
 
 export default function SidePage() {
   const [name, setName] = useState('');
@@ -14,7 +14,7 @@ export default function SidePage() {
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [marketingAgreed, setMarketingAgreed] = useState(false);
   const [termsModalOpen, setTermsModalOpen] = useState(false);
-  const [termsModalType, setTermsModalType] = useState<'terms' | 'privacy'>('terms');
+  const [termsModalType, setTermsModalType] = useState<'terms' | 'privacy' | 'marketing'>('terms');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,7 +225,8 @@ export default function SidePage() {
             transition={{ delay: 0.5 }}
             className="text-xl sm:text-2xl font-bold text-white mb-4"
           >
-            웹사이트 제작<span className="text-yellow-400">특가</span>
+            웹사이트(랜딩페이지) 제작<span className="text-yellow-400">특가</span>
+            <p></p>
           </motion.h2>
 
           <motion.div
@@ -291,18 +292,23 @@ export default function SidePage() {
               <p className="text-sm font-medium text-gray-300 mb-3">약관 동의</p>
 
               {/* 이용약관 */}
-              <label className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={termsAgreed}
-                    onChange={(e) => setTermsAgreed(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-yellow-500 focus:ring-yellow-500"
-                  />
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setTermsAgreed(!termsAgreed)}
+                  className="flex items-center gap-3 group"
+                >
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                    termsAgreed
+                      ? 'bg-gradient-to-r from-red-500 to-red-600 border-red-500'
+                      : 'border-gray-500 group-hover:border-red-400'
+                  }`}>
+                    {termsAgreed && <Check className="w-3 h-3 text-white" />}
+                  </div>
                   <span className="text-sm text-gray-300">
-                    <span className="text-red-400">[필수]</span> 이용약관 동의
+                    <span className="text-red-400 font-medium">[필수]</span> 이용약관 동의
                   </span>
-                </div>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -313,21 +319,26 @@ export default function SidePage() {
                 >
                   보기
                 </button>
-              </label>
+              </div>
 
               {/* 개인정보 처리방침 */}
-              <label className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={privacyAgreed}
-                    onChange={(e) => setPrivacyAgreed(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-yellow-500 focus:ring-yellow-500"
-                  />
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setPrivacyAgreed(!privacyAgreed)}
+                  className="flex items-center gap-3 group"
+                >
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                    privacyAgreed
+                      ? 'bg-gradient-to-r from-red-500 to-red-600 border-red-500'
+                      : 'border-gray-500 group-hover:border-red-400'
+                  }`}>
+                    {privacyAgreed && <Check className="w-3 h-3 text-white" />}
+                  </div>
                   <span className="text-sm text-gray-300">
-                    <span className="text-red-400">[필수]</span> 개인정보 처리방침 동의
+                    <span className="text-red-400 font-medium">[필수]</span> 개인정보 처리방침 동의
                   </span>
-                </div>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -338,20 +349,37 @@ export default function SidePage() {
                 >
                   보기
                 </button>
-              </label>
+              </div>
 
               {/* 마케팅 수신 동의 */}
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={marketingAgreed}
-                  onChange={(e) => setMarketingAgreed(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-yellow-500 focus:ring-yellow-500"
-                />
-                <span className="text-sm text-gray-300">
-                  <span className="text-gray-500">[선택]</span> 마케팅 정보 수신 동의
-                </span>
-              </label>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setMarketingAgreed(!marketingAgreed)}
+                  className="flex items-center gap-3 group"
+                >
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                    marketingAgreed
+                      ? 'bg-gradient-to-r from-green-500 to-green-600 border-green-500'
+                      : 'border-gray-500 group-hover:border-green-400'
+                  }`}>
+                    {marketingAgreed && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className="text-sm text-gray-300">
+                    <span className="text-gray-500">[선택]</span> 마케팅 정보 수신 동의
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTermsModalType('marketing');
+                    setTermsModalOpen(true);
+                  }}
+                  className="text-xs text-yellow-400 hover:text-yellow-300 underline"
+                >
+                  보기
+                </button>
+              </div>
             </div>
 
             <AnimatePresence>
@@ -407,7 +435,7 @@ export default function SidePage() {
       </div>
 
       {/* 약관 모달 */}
-      <TermsModal
+      <SideTermsModal
         isOpen={termsModalOpen}
         onClose={() => setTermsModalOpen(false)}
         type={termsModalType}
