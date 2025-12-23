@@ -7,8 +7,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Gift, Loader2, Phone, Sparkles, Star, TreePine, User } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
-// 크리스마스 카운트다운 타겟 (12월 25일 자정)
-const CHRISTMAS_DATE = new Date('2024-12-25T00:00:00');
+// 이벤트 마감 카운트다운 타겟 (2025년 12월 31일 자정)
+const EVENT_END_DATE = new Date('2025-12-31T23:59:59');
 
 interface TimeLeft {
   days: number;
@@ -19,7 +19,7 @@ interface TimeLeft {
 
 function calculateTimeLeft(): TimeLeft {
   const now = new Date();
-  const difference = CHRISTMAS_DATE.getTime() - now.getTime();
+  const difference = EVENT_END_DATE.getTime() - now.getTime();
 
   if (difference <= 0) {
     return { days: 0, hours: 0, minutes: 0, seconds: 0 };
@@ -225,7 +225,7 @@ export default function SidePage() {
           className="mb-6"
         >
           <div className="text-center mb-2">
-            <span className="text-sm text-yellow-400 font-medium">크리스마스까지</span>
+            <span className="text-sm text-yellow-400 font-medium">특가 마감까지</span>
           </div>
           <div className="flex justify-center gap-2 sm:gap-3">
             {[
@@ -258,7 +258,7 @@ export default function SidePage() {
             ))}
           </div>
           <div className="text-center mt-3">
-            <span className="text-xs text-gray-400">특가 이벤트 마감까지</span>
+            <span className="text-xs text-gray-400">2025년 12월 31일 마감</span>
           </div>
         </motion.div>
 
