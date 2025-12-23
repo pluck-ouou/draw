@@ -186,17 +186,6 @@ export function ChristmasTree() {
         </div>
       </div>
 
-      {/* Participation Status */}
-      {hasParticipated && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-4 rounded-xl bg-gradient-to-r from-green-500/20 to-red-500/20 p-4 text-center border border-green-500/30"
-        >
-          <p className="text-green-300">이미 참여하셨습니다!</p>
-        </motion.div>
-      )}
-
       {/* Loading Overlay */}
       {isDrawing && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">

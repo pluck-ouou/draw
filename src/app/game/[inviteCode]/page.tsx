@@ -9,7 +9,7 @@ import { Snowfall } from '@/components/Snowfall';
 import { useGame } from '@/hooks/useGame';
 import { getPlayerName } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
-import { Loader2, Sparkles, AlertCircle, Volume2, VolumeX } from 'lucide-react';
+import { Loader2, Sparkles, AlertCircle, Volume2, VolumeX, Clock, Gift } from 'lucide-react';
 import Link from 'next/link';
 // UI 컴포넌트
 import { MarqueeBanner } from '@/components/ui/MarqueeBanner';
@@ -17,7 +17,6 @@ import { WinnerToast } from '@/components/ui/WinnerToast';
 import { FloatingBadge } from '@/components/ui/FloatingBadge';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { EventPopup } from '@/components/ui/EventPopup';
-import { ShareButtons } from '@/components/ui/ShareButtons';
 import { EventFooter } from '@/components/ui/EventFooter';
 
 export default function GamePage() {
@@ -26,7 +25,7 @@ export default function GamePage() {
   const inviteCode = params.inviteCode as string;
   const supabase = createClient();
 
-  const { game, template, prizes, draws, playerName, isLoading, stats } = useGame({ inviteCode });
+  const { game, template, prizes, draws, playerName, isLoading, stats, hasParticipated } = useGame({ inviteCode });
 
   // 당첨자 정보 변환 (토스트용)
   const winnerInfos = draws
@@ -148,6 +147,57 @@ export default function GamePage() {
 
   return (
     <main className="min-h-screen">
+      {/* 오픈 준비중 모달 (waiting 상태) */}
+      {game?.status === 'waiting' && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mx-4 w-full max-w-sm rounded-2xl bg-gradient-to-b from-gray-800 to-gray-900 p-8 text-center shadow-2xl border border-gray-700"
+          >
+            <motion.div
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600"
+            >
+              <Gift className="h-10 w-10 text-gray-900" />
+            </motion.div>
+
+            <h2 className="mb-2 text-2xl font-bold text-white">오픈 준비중</h2>
+            <p className="mb-6 text-gray-400">
+              조금만 기다려주세요!<br />
+              곧 이벤트가 시작됩니다.
+            </p>
+
+            <div className="flex items-center justify-center gap-2 text-yellow-400">
+              <Clock className="h-5 w-5" />
+              <span className="text-sm font-medium">Coming Soon</span>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 이벤트 종료 모달 (ended 상태) */}
+      {game?.status === 'ended' && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mx-4 w-full max-w-sm rounded-2xl bg-gradient-to-b from-gray-800 to-gray-900 p-8 text-center shadow-2xl border border-gray-700"
+          >
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-red-400 to-red-600">
+              <AlertCircle className="h-10 w-10 text-white" />
+            </div>
+
+            <h2 className="mb-2 text-2xl font-bold text-white">이벤트 종료</h2>
+            <p className="mb-6 text-gray-400">
+              이벤트가 종료되었습니다.<br />
+              참여해주셔서 감사합니다!
+            </p>
+          </motion.div>
+        </div>
+      )}
+
       {/* 배경음악 오디오 엘리먼트 */}
       {game?.bgm_url && (
         <audio ref={audioRef} src={game.bgm_url} loop preload="auto" />
@@ -295,31 +345,22 @@ export default function GamePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-gray-900 via-gray-900/95 to-transparent pb-4 pt-8"
+            className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-gray-900 via-gray-900 to-gray-900/80 pb-6 pt-4"
           >
             <div className="mx-auto max-w-4xl px-4 text-center">
-              <p className="text-sm text-gray-400">
-                마음에 드는 오너먼트를 선택해서 경품을 확인하세요!
-              </p>
+              {hasParticipated ? (
+                <p className="text-base font-medium text-green-400">
+                  이미 참여하셨습니다!
+                </p>
+              ) : (
+                <p className="text-base font-medium text-gray-200">
+                  마음에 드는 오너먼트를 선택해서 경품을 확인하세요!
+                </p>
+              )}
             </div>
           </motion.div>
         )}
 
-        {/* 공유 버튼 */}
-        {game?.share_enabled && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="mx-auto mt-6 max-w-4xl flex justify-center"
-          >
-            <ShareButtons
-              title={clientTitle}
-              description={clientSubtitle || undefined}
-              themeColor={themeColor}
-            />
-          </motion.div>
-        )}
 
         {/* 푸터 */}
         {game?.footer_enabled && (
