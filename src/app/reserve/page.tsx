@@ -21,6 +21,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import Link from 'next/link';
+import { TermsModal } from '@/components/ui/TermsModal';
 
 // 한국 시간대
 const KST_OFFSET = 9 * 60; // 분 단위
@@ -66,6 +67,15 @@ export default function ReservePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ success: boolean; message: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // 약관 모달 상태
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [termsModalType, setTermsModalType] = useState<'terms' | 'privacy'>('terms');
+
+  const openTermsModal = (type: 'terms' | 'privacy') => {
+    setTermsModalType(type);
+    setTermsModalOpen(true);
+  };
 
   // 입력값 변경 핸들러
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -499,47 +509,72 @@ export default function ReservePage() {
             </h2>
 
             <div className="space-y-3">
-              <label className={`flex cursor-pointer items-start gap-3 rounded-lg bg-gray-700/50 p-3 ${errors.terms_agreed ? 'ring-2 ring-red-500' : ''}`}>
+              <div className={`flex items-start gap-3 rounded-lg bg-gray-700/50 p-3 ${errors.terms_agreed ? 'ring-2 ring-red-500' : ''}`}>
                 <input
                   type="checkbox"
                   name="terms_agreed"
                   checked={formData.terms_agreed}
                   onChange={handleChange}
-                  className="mt-1 h-5 w-5 rounded accent-yellow-500"
+                  className="mt-1 h-5 w-5 rounded accent-yellow-500 cursor-pointer"
                 />
-                <div>
-                  <span className="text-white">[필수] 이용약관 동의</span>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="terms_agreed" className="cursor-pointer text-white">[필수] 이용약관 동의</label>
+                    <button
+                      type="button"
+                      onClick={() => openTermsModal('terms')}
+                      className="text-xs text-yellow-400 hover:text-yellow-300 underline"
+                    >
+                      보기
+                    </button>
+                  </div>
                   <p className="text-xs text-gray-500">서비스 이용을 위한 필수 약관입니다.</p>
                 </div>
-              </label>
+              </div>
 
-              <label className={`flex cursor-pointer items-start gap-3 rounded-lg bg-gray-700/50 p-3 ${errors.privacy_agreed ? 'ring-2 ring-red-500' : ''}`}>
+              <div className={`flex items-start gap-3 rounded-lg bg-gray-700/50 p-3 ${errors.privacy_agreed ? 'ring-2 ring-red-500' : ''}`}>
                 <input
                   type="checkbox"
                   name="privacy_agreed"
                   checked={formData.privacy_agreed}
                   onChange={handleChange}
-                  className="mt-1 h-5 w-5 rounded accent-yellow-500"
+                  className="mt-1 h-5 w-5 rounded accent-yellow-500 cursor-pointer"
                 />
-                <div>
-                  <span className="text-white">[필수] 개인정보 처리방침 동의</span>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="privacy_agreed" className="cursor-pointer text-white">[필수] 개인정보 처리방침 동의</label>
+                    <button
+                      type="button"
+                      onClick={() => openTermsModal('privacy')}
+                      className="text-xs text-yellow-400 hover:text-yellow-300 underline"
+                    >
+                      보기
+                    </button>
+                  </div>
                   <p className="text-xs text-gray-500">예약 처리를 위해 개인정보를 수집합니다.</p>
                 </div>
-              </label>
+              </div>
 
-              <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-gray-700/50 p-3">
+              <div className="flex items-start gap-3 rounded-lg bg-gray-700/50 p-3">
                 <input
                   type="checkbox"
                   name="marketing_agreed"
                   checked={formData.marketing_agreed}
                   onChange={handleChange}
-                  className="mt-1 h-5 w-5 rounded accent-yellow-500"
+                  className="mt-1 h-5 w-5 rounded accent-yellow-500 cursor-pointer"
                 />
-                <div>
-                  <span className="text-white">[선택] 마케팅 정보 수신 동의</span>
+                <div className="flex-1">
+                  <label htmlFor="marketing_agreed" className="cursor-pointer text-white">[선택] 마케팅 정보 수신 동의</label>
                   <p className="text-xs text-gray-500">이벤트, 프로모션 등 유용한 정보를 받아보세요.</p>
                 </div>
-              </label>
+              </div>
+            </div>
+
+            {/* 개인정보 수집 안내 */}
+            <div className="mt-4 rounded-lg bg-gray-900/50 p-3 text-xs text-gray-400">
+              <p className="font-medium text-gray-300 mb-1">수집하는 개인정보</p>
+              <p>필수: 성함, 연락처, 이메일 | 선택: 회사명, 이벤트 설명</p>
+              <p className="mt-1">보유기간: 이벤트 종료 후 1년</p>
             </div>
           </div>
 
@@ -572,6 +607,13 @@ export default function ReservePage() {
           </Link>
         </div>
       </div>
+
+      {/* 약관 모달 */}
+      <TermsModal
+        isOpen={termsModalOpen}
+        onClose={() => setTermsModalOpen(false)}
+        type={termsModalType}
+      />
     </main>
   );
 }

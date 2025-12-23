@@ -322,10 +322,8 @@ export default function AdminGamePage() {
     prizeCount: prizes.filter((p) => p.prize_grade !== null).length,
   };
 
-  const maxSlots = template?.total_slots || 100; // 템플릿 슬롯 수 또는 기본값 100
-
   const adjustSlotCount = async (newCount: number) => {
-    if (newCount < 1 || newCount > maxSlots) return;
+    if (newCount < 1 || newCount > 200) return; // 절대 최대값 200
     if (newCount === prizes.length) return;
 
     const drawnCount = prizes.filter(p => p.is_drawn).length;
@@ -1229,9 +1227,7 @@ export default function AdminGamePage() {
             <div className="flex items-center gap-3">
               <span className="text-sm text-gray-400">현재:</span>
               <span className="text-xl font-bold text-yellow-400">{prizes.length}개</span>
-              {template && (
-                <span className="text-sm text-gray-500">(템플릿 최대: {template.total_slots}개)</span>
-              )}
+              <span className="text-sm text-gray-500">(최대: 200개)</span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -1251,23 +1247,23 @@ export default function AdminGamePage() {
               <input
                 type="number"
                 min={1}
-                max={maxSlots}
+                max={200}
                 value={desiredSlotCount}
-                onChange={(e) => setDesiredSlotCount(Math.max(1, Math.min(maxSlots, Number(e.target.value))))}
+                onChange={(e) => setDesiredSlotCount(Math.max(1, Math.min(200, Number(e.target.value))))}
                 onBlur={() => adjustSlotCount(desiredSlotCount)}
                 onKeyDown={(e) => e.key === 'Enter' && adjustSlotCount(desiredSlotCount)}
                 className="w-20 rounded-lg bg-gray-700 px-3 py-2 text-center text-white"
               />
               <button
                 onClick={() => adjustSlotCount(desiredSlotCount + 1)}
-                disabled={isUpdating || desiredSlotCount >= maxSlots}
+                disabled={isUpdating || desiredSlotCount >= 200}
                 className="rounded-lg bg-gray-700 px-3 py-2 text-white hover:bg-gray-600 disabled:opacity-50"
               >
                 +1
               </button>
               <button
                 onClick={() => adjustSlotCount(desiredSlotCount + 10)}
-                disabled={isUpdating || desiredSlotCount + 10 > maxSlots}
+                disabled={isUpdating || desiredSlotCount + 10 > 200}
                 className="rounded-lg bg-gray-700 px-3 py-2 text-white hover:bg-gray-600 disabled:opacity-50"
               >
                 +10

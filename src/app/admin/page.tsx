@@ -21,6 +21,7 @@ import {
   Trash2,
   LogOut,
   CalendarDays,
+  Gift,
 } from 'lucide-react';
 
 type TabType = 'games' | 'templates';
@@ -328,13 +329,22 @@ export default function AdminPage() {
             템플릿 관리
           </button>
           {isSuper && (
-            <Link
-              href="/admin/reservations"
-              className="flex items-center gap-2 rounded-lg px-4 py-2 font-medium bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-all"
-            >
-              <CalendarDays className="h-4 w-4" />
-              예약 관리
-            </Link>
+            <>
+              <Link
+                href="/admin/reservations"
+                className="flex items-center gap-2 rounded-lg px-4 py-2 font-medium bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-all"
+              >
+                <CalendarDays className="h-4 w-4" />
+                예약 관리
+              </Link>
+              <Link
+                href="/admin/side-applications"
+                className="flex items-center gap-2 rounded-lg px-4 py-2 font-medium bg-red-900/50 text-red-300 hover:bg-red-800/50 hover:text-white transition-all"
+              >
+                <Gift className="h-4 w-4" />
+                특가 신청
+              </Link>
+            </>
           )}
         </div>
 
