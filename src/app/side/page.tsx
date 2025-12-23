@@ -320,7 +320,7 @@ export default function SidePage() {
             className="inline-block"
           >
             <div className="relative">
-              <span className="text-gray-400 line-through text-lg">100만원</span>
+              <span className="text-gray-400 line-through text-lg">150만원</span>
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: '100%' }}
