@@ -4,11 +4,17 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { Snowfall } from '@/components/Snowfall';
+import { TermsModal } from '@/components/ui/TermsModal';
 import { Loader2, Gift, Sparkles, Check, TreePine, Star, Phone, User } from 'lucide-react';
 
 export default function SidePage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
+  const [marketingAgreed, setMarketingAgreed] = useState(false);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [termsModalType, setTermsModalType] = useState<'terms' | 'privacy'>('terms');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +44,11 @@ export default function SidePage() {
       return;
     }
 
+    if (!termsAgreed || !privacyAgreed) {
+      setError('필수 약관에 동의해주세요.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -46,6 +57,9 @@ export default function SidePage() {
         .insert({
           name: name.trim(),
           phone: phone.trim(),
+          terms_agreed: termsAgreed,
+          privacy_agreed: privacyAgreed,
+          marketing_agreed: marketingAgreed,
         });
 
       if (insertError) throw insertError;
@@ -211,7 +225,7 @@ export default function SidePage() {
             transition={{ delay: 0.5 }}
             className="text-xl sm:text-2xl font-bold text-white mb-4"
           >
-            웹사이트 제작 <span className="text-yellow-400">특가</span>
+            웹사이트 제작<span className="text-yellow-400">특가</span>
           </motion.h2>
 
           <motion.div
@@ -272,6 +286,74 @@ export default function SidePage() {
               />
             </div>
 
+            {/* 약관 동의 */}
+            <div className="space-y-3 rounded-xl bg-white/5 p-4 border border-white/10">
+              <p className="text-sm font-medium text-gray-300 mb-3">약관 동의</p>
+
+              {/* 이용약관 */}
+              <label className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={termsAgreed}
+                    onChange={(e) => setTermsAgreed(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-yellow-500 focus:ring-yellow-500"
+                  />
+                  <span className="text-sm text-gray-300">
+                    <span className="text-red-400">[필수]</span> 이용약관 동의
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTermsModalType('terms');
+                    setTermsModalOpen(true);
+                  }}
+                  className="text-xs text-yellow-400 hover:text-yellow-300 underline"
+                >
+                  보기
+                </button>
+              </label>
+
+              {/* 개인정보 처리방침 */}
+              <label className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={privacyAgreed}
+                    onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-yellow-500 focus:ring-yellow-500"
+                  />
+                  <span className="text-sm text-gray-300">
+                    <span className="text-red-400">[필수]</span> 개인정보 처리방침 동의
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTermsModalType('privacy');
+                    setTermsModalOpen(true);
+                  }}
+                  className="text-xs text-yellow-400 hover:text-yellow-300 underline"
+                >
+                  보기
+                </button>
+              </label>
+
+              {/* 마케팅 수신 동의 */}
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={marketingAgreed}
+                  onChange={(e) => setMarketingAgreed(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-yellow-500 focus:ring-yellow-500"
+                />
+                <span className="text-sm text-gray-300">
+                  <span className="text-gray-500">[선택]</span> 마케팅 정보 수신 동의
+                </span>
+              </label>
+            </div>
+
             <AnimatePresence>
               {error && (
                 <motion.p
@@ -323,6 +405,13 @@ export default function SidePage() {
           </div>
         </motion.div>
       </div>
+
+      {/* 약관 모달 */}
+      <TermsModal
+        isOpen={termsModalOpen}
+        onClose={() => setTermsModalOpen(false)}
+        type={termsModalType}
+      />
     </main>
   );
 }
