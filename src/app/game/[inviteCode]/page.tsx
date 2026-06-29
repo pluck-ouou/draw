@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ChristmasTree } from '@/components/ChristmasTree';
@@ -25,7 +25,14 @@ export default function GamePage() {
   const inviteCode = params.inviteCode as string;
   const supabase = createClient();
 
-  const { game, template, prizes, draws, playerName, isLoading, stats, hasParticipated } = useGame({ inviteCode });
+  const { game, template, prizes, draws, playerName, isLoading, stats, hasParticipated, refetch } = useGame({ inviteCode });
+
+  // 카운트다운 만료 시 게임 자동 종료
+  const handleCountdownEnd = useCallback(async () => {
+    if (!game) return;
+    await supabase.from('games').update({ status: 'ended' }).eq('id', game.id);
+    refetch();
+  }, [game, supabase, refetch]);
 
   // 당첨자 정보 변환 (토스트용)
   const winnerInfos = draws
@@ -300,7 +307,7 @@ export default function GamePage() {
             animate={{ opacity: 1 }}
             className="mx-auto mb-4 max-w-4xl flex justify-center"
           >
-            <CountdownTimer endTime={game.event_end_at} themeColor={themeColor} />
+            <CountdownTimer endTime={game.event_end_at} themeColor={themeColor} onEnd={handleCountdownEnd} />
           </motion.div>
         )}
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { NameInput } from '@/components/NameInput';
@@ -20,12 +20,20 @@ export default function InviteCodePage() {
   const router = useRouter();
   const params = useParams();
   const inviteCode = (params.inviteCode as string).toUpperCase();
+  const supabase = createClient();
 
   const [game, setGame] = useState<Game | null>(null);
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [draws, setDraws] = useState<Draw[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  // 카운트다운 만료 시 게임 자동 종료
+  const handleCountdownEnd = useCallback(async () => {
+    if (!game) return;
+    await supabase.from('games').update({ status: 'ended' }).eq('id', game.id);
+    setGame({ ...game, status: 'ended' });
+  }, [game, supabase]);
 
   useEffect(() => {
     // 관리자 페이지 경로 체크 - admin이면 스킵
@@ -199,7 +207,7 @@ export default function InviteCodePage() {
             transition={{ delay: 0.1 }}
             className="mb-6"
           >
-            <CountdownTimer endTime={game.event_end_at} themeColor={themeColor} />
+            <CountdownTimer endTime={game.event_end_at} themeColor={themeColor} onEnd={handleCountdownEnd} />
           </motion.div>
         )}
 
